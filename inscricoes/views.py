@@ -1,6 +1,7 @@
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404, redirect
+from django.urls import reverse
 from django.views import View
 from django.views.generic import CreateView, DetailView, ListView
 
@@ -38,7 +39,7 @@ class InscricaoCreateView(LoginRequiredMixin, CreateView):
         return response
 
     def get_success_url(self):
-        return f'/inscricoes/{self.object.pk}/'
+        return reverse('inscricoes:detail', kwargs={'pk': self.object.pk})
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -87,4 +88,4 @@ class CancelarInscricaoView(LoginRequiredMixin, View):
             objeto=inscricao,
             origem=request.META.get('REMOTE_ADDR', ''),
         )
-        return redirect(f'/inscricoes/{pk}/')
+        return redirect('inscricoes:detail', pk=pk)

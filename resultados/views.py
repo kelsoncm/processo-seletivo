@@ -60,7 +60,7 @@ class PublicarResultadoEtapaView(LoginRequiredMixin, View):
             objeto=etapa,
             origem=request.META.get('REMOTE_ADDR', ''),
         )
-        return redirect(f'/processos/{etapa.fase.processo_seletivo_id}/')
+        return redirect('processos:detail', pk=etapa.fase.processo_seletivo_id)
 
 
 class ResultadoFinalPublicoView(ListView):

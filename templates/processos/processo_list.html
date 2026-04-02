@@ -2,7 +2,7 @@
 {% block title %}Processos Seletivos{% endblock %}
 {% block content %}
 <h1>Processos Seletivos</h1>
-{% if user.is_authenticated and user.is_coordenador or user.is_staff %}
+{% if user.is_authenticated and (user.is_coordenador or user.is_staff) %}
     <a href="{% url 'processos:create' %}">Novo Processo Seletivo</a>
 {% endif %}
 <ul>

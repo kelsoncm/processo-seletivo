@@ -1,6 +1,7 @@
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404, redirect
+from django.urls import reverse
 from django.views.generic import CreateView, DetailView, ListView
 
 from auditoria.models import EventoAuditoria
@@ -38,7 +39,7 @@ class RecursoCreateView(LoginRequiredMixin, CreateView):
         return response
 
     def get_success_url(self):
-        return f'/recursos/{self.object.pk}/'
+        return reverse('recursos:detail', kwargs={'pk': self.object.pk})
 
 
 class RecursoDetailView(LoginRequiredMixin, DetailView):
@@ -85,4 +86,4 @@ class RespostaRecursoCreateView(LoginRequiredMixin, CreateView):
         return response
 
     def get_success_url(self):
-        return f'/recursos/{self.recurso.pk}/'
+        return reverse('recursos:detail', kwargs={'pk': self.recurso.pk})

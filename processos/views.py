@@ -1,6 +1,7 @@
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views import View
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
@@ -58,7 +59,7 @@ class ProcessoSeletivoCreateView(CoordenadorRequiredMixin, CreateView):
         return response
 
     def get_success_url(self):
-        return f'/processos/{self.object.pk}/'
+        return reverse('processos:detail', kwargs={'pk': self.object.pk})
 
 
 class ProcessoSeletivoUpdateView(CoordenadorRequiredMixin, UpdateView):
@@ -91,7 +92,7 @@ class ProcessoSeletivoUpdateView(CoordenadorRequiredMixin, UpdateView):
         return response
 
     def get_success_url(self):
-        return f'/processos/{self.object.pk}/'
+        return reverse('processos:detail', kwargs={'pk': self.object.pk})
 
 
 class PublicarProcessoView(CoordenadorRequiredMixin, View):
@@ -105,18 +106,18 @@ class PublicarProcessoView(CoordenadorRequiredMixin, View):
             objeto=processo,
             origem=request.META.get('REMOTE_ADDR', ''),
         )
-        return redirect(f'/processos/{pk}/')
+        return redirect('processos:detail', pk=pk)
 
 
 class SuspenderProcessoView(CoordenadorRequiredMixin, View):
     def post(self, request, pk):
         processo = get_object_or_404(ProcessoSeletivo, pk=pk)
         processo.suspender()
-        return redirect(f'/processos/{pk}/')
+        return redirect('processos:detail', pk=pk)
 
 
 class EncerrarProcessoView(CoordenadorRequiredMixin, View):
     def post(self, request, pk):
         processo = get_object_or_404(ProcessoSeletivo, pk=pk)
         processo.encerrar()
-        return redirect(f'/processos/{pk}/')
+        return redirect('processos:detail', pk=pk)

@@ -1,6 +1,7 @@
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404, redirect
+from django.urls import reverse
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
 from auditoria.models import EventoAuditoria
@@ -58,7 +59,7 @@ class AvaliacaoCreateView(AvaliadorRequiredMixin, CreateView):
         return response
 
     def get_success_url(self):
-        return f'/avaliacoes/{self.object.pk}/'
+        return reverse('avaliacoes:detail', kwargs={'pk': self.object.pk})
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
