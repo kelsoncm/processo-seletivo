@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Recurso{% endblock %}
+{% block content %}
+<h1>Recurso</h1>
+<p><strong>Inscrição:</strong> {{ recurso.inscricao.numero }}</p>
+<p><strong>Etapa:</strong> {{ recurso.etapa }}</p>
+<p><strong>Status:</strong> {{ recurso.get_status_display }}</p>
+<p><strong>Data:</strong> {{ recurso.data_interposicao }}</p>
+<p><strong>Texto:</strong> {{ recurso.texto }}</p>
+
+{% if recurso.resposta %}
+<h2>Resposta</h2>
+<p>{{ recurso.resposta.texto }}</p>
+<p><em>Respondido em {{ recurso.resposta.data_resposta }} por {{ recurso.resposta.respondido_por }}</em></p>
+{% endif %}
+
+{% if user.is_coordenador or user.is_staff %}
+    {% if recurso.status == 'PENDENTE' %}
+        <a href="{% url 'recursos:responder' recurso.pk %}">Responder recurso</a>
+    {% endif %}
+{% endif %}
+{% endblock %}

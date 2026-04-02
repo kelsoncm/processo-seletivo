@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Resultado Final — {{ processo.titulo }}{% endblock %}
+{% block content %}
+<h1>Resultado Final — {{ processo.titulo }}</h1>
+<table>
+    <thead>
+        <tr>
+            <th>Classificação</th>
+            <th>Número de Inscrição</th>
+            <th>Nota Final</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for resultado in resultados %}
+        <tr>
+            <td>{{ resultado.classificacao }}º</td>
+            <td>{{ resultado.inscricao.numero }}</td>
+            <td>{{ resultado.nota_final|default:"—" }}</td>
+        </tr>
+    {% empty %}
+        <tr><td colspan="3">Resultado final não publicado.</td></tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

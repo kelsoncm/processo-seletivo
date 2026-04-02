@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Avaliar Inscrição {{ inscricao.numero }}{% endblock %}
+{% block content %}
+<h1>Avaliação — Inscrição {{ inscricao.numero }}</h1>
+<p><strong>Etapa:</strong> {{ etapa }}</p>
+
+{% if documentos %}
+<h2>Documentos da etapa</h2>
+<ul>
+{% for doc in documentos %}
+    <li><a href="{{ doc.arquivo.url }}" target="_blank">{{ doc.tipo_documento.nome }}</a></li>
+{% endfor %}
+</ul>
+{% endif %}
+
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Salvar Avaliação</button>
+</form>
+{% endblock %}

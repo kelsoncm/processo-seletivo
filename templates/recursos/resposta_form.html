@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Responder Recurso{% endblock %}
+{% block content %}
+<h1>Resposta ao Recurso</h1>
+<p><strong>Recurso de:</strong> {{ recurso.inscricao.numero }}</p>
+<p><strong>Texto do recurso:</strong> {{ recurso.texto }}</p>
+<form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <label>
+        <input type="checkbox" name="deferido" value="1"> Deferir recurso
+    </label>
+    <button type="submit">Salvar Resposta</button>
+</form>
+{% endblock %}

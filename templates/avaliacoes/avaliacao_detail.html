@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Avaliação{% endblock %}
+{% block content %}
+<h1>Avaliação</h1>
+<p><strong>Inscrição:</strong> {{ avaliacao.inscricao.numero }}</p>
+<p><strong>Etapa:</strong> {{ avaliacao.etapa }}</p>
+<p><strong>Avaliador:</strong> {{ avaliacao.avaliador }}</p>
+{% if avaliacao.nota %}<p><strong>Nota:</strong> {{ avaliacao.nota }}</p>{% endif %}
+{% if avaliacao.parecer %}<p><strong>Parecer:</strong> {{ avaliacao.parecer }}</p>{% endif %}
+{% if avaliacao.aprovado is not None %}<p><strong>Aprovado:</strong> {{ avaliacao.aprovado|yesno:"Sim,Não" }}</p>{% endif %}
+{% if avaliacao.justificativa %}<p><strong>Justificativa:</strong> {{ avaliacao.justificativa }}</p>{% endif %}
+{% endblock %}

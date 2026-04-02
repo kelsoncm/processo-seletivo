@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Avaliações{% endblock %}
+{% block content %}
+<h1>Avaliações</h1>
+<ul>
+{% for avaliacao in avaliacoes %}
+    <li>
+        <a href="{% url 'avaliacoes:detail' avaliacao.pk %}">
+            Inscrição {{ avaliacao.inscricao.numero }} — {{ avaliacao.etapa }}
+        </a>
+        {% if avaliacao.nota %}— Nota: {{ avaliacao.nota }}{% endif %}
+    </li>
+{% empty %}
+    <li>Nenhuma avaliação encontrada.</li>
+{% endfor %}
+</ul>
+{% endblock %}
