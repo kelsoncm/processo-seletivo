@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Interpor Recurso{% endblock %}
+{% block content %}
+<h1>Recurso — Inscrição {{ inscricao.numero }}</h1>
+<p><strong>Etapa:</strong> {{ etapa }}</p>
+<form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Enviar Recurso</button>
+</form>
+{% endblock %}

@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Inscrição em {{ processo.titulo }}{% endblock %}
+{% block content %}
+<h1>Inscrição em {{ processo.titulo }}</h1>
+<p>Confirme sua inscrição no processo seletivo <strong>{{ processo.titulo }}</strong>.</p>
+<form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Confirmar Inscrição</button>
+    <a href="{% url 'processos:detail' processo.pk %}">Cancelar</a>
+</form>
+{% endblock %}

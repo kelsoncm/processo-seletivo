@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Inscrição {{ inscricao.numero }}{% endblock %}
+{% block content %}
+<h1>Inscrição {{ inscricao.numero }}</h1>
+<p><strong>Processo:</strong> {{ inscricao.processo_seletivo }}</p>
+<p><strong>Candidato:</strong> {{ inscricao.candidato }}</p>
+<p><strong>Status:</strong> {{ inscricao.get_status_display }}</p>
+<p><strong>Data de inscrição:</strong> {{ inscricao.data_inscricao }}</p>
+
+{% if inscricao.status == 'ATIVA' and user == inscricao.candidato %}
+    <form method="post" action="{% url 'inscricoes:cancelar' inscricao.pk %}">
+        {% csrf_token %}
+        <button type="submit" onclick="return confirm('Confirma o cancelamento da inscrição?')">
+            Cancelar Inscrição
+        </button>
+    </form>
+{% endif %}
+
+<h2>Documentos enviados</h2>
+<ul>
+{% for doc in inscricao.documentos.filter(ativo=True) %}
+    <li>{{ doc.tipo_documento.nome }} — {{ doc.arquivo.name }} ({{ doc.data_envio }})</li>
+{% empty %}
+    <li>Nenhum documento enviado.</li>
+{% endfor %}
+</ul>
+{% endblock %}

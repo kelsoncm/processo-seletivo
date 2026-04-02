@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}{{ processo.titulo }}{% endblock %}
+{% block content %}
+<h1>{{ processo.titulo }}</h1>
+<p><strong>Edital:</strong> {{ processo.edital }}</p>
+<p><strong>Status:</strong> {{ processo.get_status_display }}</p>
+<p><strong>Coordenador:</strong> {{ processo.coordenador }}</p>
+<div>{{ processo.descricao }}</div>
+
+<h2>Fases</h2>
+<ol>
+{% for fase in processo.fases.all %}
+    <li>
+        <strong>{{ fase.nome }}</strong> ({{ fase.get_tipo_display }})
+        {% if fase.data_inicio %} — De {{ fase.data_inicio }} até {{ fase.data_fim }}{% endif %}
+        <ul>
+        {% for etapa in fase.etapas.all %}
+            <li>Etapa {{ etapa.ordem }}: {{ etapa.nome }}</li>
+        {% endfor %}
+        </ul>
+    </li>
+{% endfor %}
+</ol>
+
+{% if user.is_authenticated %}
+    {% if processo.status == 'PUBLICADO' %}
+        <a href="{% url 'inscricoes:create' processo.pk %}">Inscrever-se</a>
+    {% endif %}
+{% endif %}
+
+{% if user.is_coordenador or user.is_staff %}
+    <a href="{% url 'processos:update' processo.pk %}">Editar</a>
+    {% if processo.status == 'RASCUNHO' %}
+        <form method="post" action="{% url 'processos:publicar' processo.pk %}">
+            {% csrf_token %}<button type="submit">Publicar</button>
+        </form>
+    {% elif processo.status == 'PUBLICADO' %}
+        <form method="post" action="{% url 'processos:suspender' processo.pk %}">
+            {% csrf_token %}<button type="submit">Suspender</button>
+        </form>
+        <form method="post" action="{% url 'processos:encerrar' processo.pk %}">
+            {% csrf_token %}<button type="submit">Encerrar</button>
+        </form>
+    {% endif %}
+{% endif %}
+{% endblock %}

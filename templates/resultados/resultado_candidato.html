@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Meus Resultados{% endblock %}
+{% block content %}
+<h1>Meus Resultados</h1>
+{% for resultado in resultados %}
+    <div>
+        <h2>{{ resultado.etapa.fase.processo_seletivo }} — {{ resultado.etapa }}</h2>
+        <p><strong>Nota:</strong> {{ resultado.nota_final|default:"—" }}</p>
+        <p><strong>Situação:</strong> {% if resultado.habilitado %}Habilitado{% else %}Não habilitado{% endif %}</p>
+        {% with avaliacao=resultado.inscricao.avaliacoes.filter(etapa=resultado.etapa).first %}
+        {% if avaliacao and avaliacao.justificativa %}
+            <p><strong>Justificativa do avaliador:</strong> {{ avaliacao.justificativa }}</p>
+        {% endif %}
+        {% endwith %}
+    </div>
+{% empty %}
+    <p>Nenhum resultado disponível.</p>
+{% endfor %}
+{% endblock %}

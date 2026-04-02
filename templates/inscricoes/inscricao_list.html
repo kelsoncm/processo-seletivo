@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Minhas Inscrições{% endblock %}
+{% block content %}
+<h1>Inscrições</h1>
+<ul>
+{% for inscricao in inscricoes %}
+    <li>
+        <a href="{% url 'inscricoes:detail' inscricao.pk %}">{{ inscricao.numero }}</a>
+        — {{ inscricao.processo_seletivo }} — {{ inscricao.get_status_display }}
+    </li>
+{% empty %}
+    <li>Nenhuma inscrição encontrada.</li>
+{% endfor %}
+</ul>
+{% endblock %}

@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Resultado — {{ etapa }}{% endblock %}
+{% block content %}
+<h1>Resultado Parcial — {{ etapa }}</h1>
+<p>Resultado divulgado com número de inscrição apenas.</p>
+<table>
+    <thead>
+        <tr>
+            <th>Número de Inscrição</th>
+            <th>Situação</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for resultado in resultados %}
+        <tr>
+            <td>{{ resultado.inscricao.numero }}</td>
+            <td>{% if resultado.habilitado %}Habilitado{% else %}Não habilitado{% endif %}</td>
+        </tr>
+    {% empty %}
+        <tr><td colspan="2">Nenhum resultado publicado.</td></tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
