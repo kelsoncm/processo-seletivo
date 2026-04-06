@@ -43,15 +43,6 @@ docker compose up --build
 - **db**: PostgreSQL
 - **redis**: Broker para Celery
 
-## Principais Variáveis de Ambiente
-- `SECRET_KEY`: Chave secreta do Django
-- `DEBUG`: Ativa/desativa modo debug
-- `DB_*`: Configurações do banco de dados
-- `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND`: URLs do Redis
-- `SENTRY_DSN`: Integração com Sentry (opcional)
-- `GOVBR_*`: Integração gov.br OAuth2
-- `SUAP_*`: Integração SUAP
-
 ## Variáveis de Ambiente Disponíveis
 
 As seguintes variáveis de ambiente podem ser informadas ao subir a imagem para customizar o comportamento do sistema:
