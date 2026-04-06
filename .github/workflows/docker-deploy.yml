@@ -1,0 +1,53 @@
+name: Build, push and deploy Docker service
+
+permissions:
+  contents: read
+
+on:
+  push:
+    # branches:
+    #   - main
+    tags:
+      - '*'
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    # - name: Set version in project.py
+    #   run: |
+    #     sed -i 's/"PROJECT_VERSION", ".*"/"PROJECT_VERSION", "${{ github.ref_name }}"/' src/settings/project.py
+
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: kelsoncm/processoseletivo:${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'latest' }}
+        target: production
+
+  deploy:
+    environment:
+      name: ${{ startsWith(github.ref, 'refs/tags/') && 'production' || 'test' }}
+    if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
+    runs-on: ${{ vars.RUNNER_LABEL || 'self-hosted' }}
+    needs: build-and-push
+    steps:
+    - name: Pull and restart service
+      run: |
+        cd ${{ vars.DEPLOY_DOCKER_PATH }}
+        sed -i 's|kelsoncm/processoseletivo:.*|kelsoncm/processoseletivo:${{ github.ref_name }}|g' docker-compose.yml && \
+        docker compose pull ${{ vars.DOCKER_SERVICE_NAME }}
+        docker compose down ${{ vars.DOCKER_SERVICE_NAME }}
+        docker compose up -d ${{ vars.DOCKER_SERVICE_NAME }}
+        timeout 60s docker compose logs -f ${{ vars.DOCKER_SERVICE_NAME }} || true
