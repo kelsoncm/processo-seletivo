@@ -1,0 +1,523 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+import re
+import os
+import sys
+import subprocess
+import time
+import inspect
+import zipfile
+
+
+COMPANY_NAME = "PESSOAL"
+PROJECT_NAME = "prosel"
+HOME = os.environ.get("HOME")
+PROJECT_DIR = os.environ.get("PROJECT_DIR", f"{HOME}/projetos/{COMPANY_NAME}/processo-seletivo")
+WORKSPACE_DIR = os.environ.get("WORKSPACE_DIR", f"{PROJECT_DIR}/")
+VOLUMES_DIR = os.environ.get("VOLUMES_DIR", f"{PROJECT_DIR}/prosel_volumes")
+
+
+class Color:
+    ENDC = "\033[0m"
+
+    def r(text: str) -> str:
+        """Returns a *red* string"""
+        return f"\033[91m{text}{Color.ENDC}"
+
+    def b(text: str) -> str:
+        """Returns a *blue* string"""
+        return f"\033[94m{text}{Color.ENDC}"
+
+    def g(text: str) -> str:
+        """Returns a *green* string"""
+        return f"\033[92m{text}{Color.ENDC}"
+
+    def c(text: str) -> str:
+        """Returns a *cyan* string"""
+        return f"\033[96m{text}{Color.ENDC}"
+
+    def m(text: str) -> str:
+        """Returns a *magenta* string"""
+        return f"\033[95m{text}{Color.ENDC}"
+
+    def y(text: str) -> str:
+        """Returns a *yellow* string"""
+        return f"\033[93m{text}{Color.ENDC}"
+
+    def s(text: str) -> str:
+        """Returns a *strong* string"""
+        return f"\033[1m{text}{Color.ENDC}"
+
+    def u(text: str) -> str:
+        """Returns a *underlined* string"""
+        return f"\033[4m{text}{Color.ENDC}"
+
+
+class Commands:
+
+    def __init__(self) -> None:
+        self._services = []
+        self._repositories = []
+        self._commands = {}
+        self._scopes = {}
+        self._descriptions = {}
+        self._command_name = sys.argv[1] if len(sys.argv) > 1 else "help"
+        self._scope_name = sys.argv[2] if len(sys.argv) >= 3 else "env"
+        self._service_name = self._scope_name if self._scope_name != "env" else ""
+
+        self.__read_envs()
+        self.__read_compose()
+        self.__load_commands()
+        self.__validate()
+
+    def __read_envs(self):
+        with open(f"{WORKSPACE_DIR}/.env", "r") as f:
+            for l in f.readlines():
+                if l.startswith("#"):
+                    continue
+                if l.strip() == "":
+                    continue
+                varname = l.split("=", 2)[0]
+                varval = l.split("=", 2)[1][:-1]
+                if varname == "COMPOSE_PROJECT_NAME" and varval != PROJECT_NAME:
+                    raise Exception(
+                        f"No arquivo .env está como {l}, mas devia ser {varname}={PROJECT_NAME}"
+                    )
+                os.environ[varname] = varval
+
+    def __read_compose(self):
+        def is_service(line):
+            result = re.search("^  (\\w*):$", line)
+            if result is not None:
+                if len(result.groups()) == 1 and result.group(1) != "default":
+                    return result.group(1)
+
+        def is_image(line):
+            result = re.search("^(    image: )(.*)$", line)
+            if result is not None:
+                if len(result.groups()) > 0:
+                    image = result.group(2)
+                    return image.split("/")[0] if image.count("/") > 1 else ""
+
+        f = os.popen("docker compose config")
+        self._services = []
+        self._repositories = []
+        for line in f.read().splitlines():
+            if is_service(line):
+                self._services.append(is_service(line))
+            if is_image(line):
+                self._repositories.append(is_image(line))
+        self._repositories.append("")
+        self._repositories = set(self._repositories)
+
+    def __load_commands(self):
+        for k, v in inspect.getmembers(self, inspect.ismethod):
+            if not v.__doc__:
+                continue
+
+            match = re.search(r"^(.*)(Aplica-se a: )(.*)$", v.__doc__)
+            if match is None:
+                continue
+
+            self._commands[k] = v
+            self._scopes[k] = []
+            self._descriptions[k] = "Sem descrição"
+            scopes_names = match.group(3)
+            scopes_names = scopes_names.replace(
+                "$services_names$", ",".join(self._services)
+            )
+            scopes_names = scopes_names.replace(
+                "$restore_dirs$",
+                ",".join(self.__prefixed_envs("RESTORE_DIR_").keys()),
+            )
+            scopes_names = scopes_names.replace(
+                "$download_files$",
+                ",".join(self.__prefixed_envs("DOWNLOAD_FILE").keys()),
+            )
+            self._scopes[k] = scopes_names.split(",")
+            self._descriptions[k] = match.group(1) + match.group(2)
+
+    def __validate(self):
+        if len(sys.argv) == 1:
+            self.help()
+
+        if self._command_name not in self._commands:
+            print(
+                f"{Color.g('docker compose')} {Color.b(self._command_name)} {Color.m(' '.join(sys.argv[2:]))}"
+            )
+            self.__execute("docker", "compose", *sys.argv[1:])
+            exit()
+
+        if self._scope_name is None:
+            print(
+                f"Para o comando {Color.m(self._command_name)}, os serviços disponíveis são: "
+                + Color.c(", ".join(self._scopes[self._command_name]))
+            )
+            exit()
+
+    def __service_is_running(self, service_name):
+        f = os.popen("docker container ps")
+        for line in f.read().splitlines():
+            if re.match(f".*{PROJECT_NAME}-{service_name}-1.*", line):
+                return True
+        return False
+
+    def __service_is_healthy(self, service_name):
+        f = os.popen("docker container ps")
+        for line in f.read().splitlines():
+            if re.match(f".*{PROJECT_NAME}-{service_name}-1.*", line) and re.match(
+                f".*healthy.*", line
+            ):
+                return True
+        return False
+
+    def __execute(self, executable_file, *args):
+        print(
+            Color.g("Executando: "),
+            Color.b(f"{executable_file} {' '.join(args)}"),
+        )
+        p = subprocess.Popen(
+            executable_file + " " + " ".join(args),
+            stdin=sys.stdin,
+            stdout=sys.stdout,
+            stderr=sys.stdout,
+            shell=True,
+            cwd=WORKSPACE_DIR,
+        )
+        p.wait()
+
+    def __writeShellFile(self, filename):
+        if os.path.exists(f"{HOME}/{filename}"):
+            with open(f"{HOME}/{filename}", "r") as f:
+                if f"{PROJECT_NAME}_workspace" not in f.read():
+                    self.__execute(f"echo 'PATH=$PATH:{WORKSPACE_DIR}' >> ~/{filename}")
+                    print("Lembre-se de executar o comando abaixo:")
+                    print(Color.g(f"source ~/{filename}"), "\n")
+
+    def __prefixed_envs(self, prefix):
+        return {
+            k[len(prefix) :].lower(): v
+            for k, v in os.environ.items()
+            if k.startswith(prefix)
+        }
+
+    @property
+    def _verb(self):
+        return "exec" if self.__service_is_running(self._service_name) else "run --rm"
+
+    @property
+    def command_method(self):
+        # arg_command = sys.argv[1] if 1 in sys.argv else ""
+        for k, v in self._commands.items():
+            if k == self._command_name:
+                return v
+        return None
+
+    def help(self):
+        """Imprime esta ajuda. Aplica-se a: env"""
+        print(
+            f"""Uso:\n{Color.r('ava [OPTIONS] COMMAND')}\n\nOptions:
+    {Color.m('--ansi')} {Color.y('string')}                Control when to print ANSI control characters ("never"|"always"|"auto") (default "auto")
+    {Color.m('--compatibility')}              Run compose in backward compatibility mode
+    {Color.m('--env-file')} {Color.y('string')}            Specify an alternate environment file.
+{Color.m('-f')}, {Color.m('--file')} {Color.y('stringArray')}           Compose configuration files
+    {Color.m('--profile')} {Color.y('stringArray')}        Specify a profile to enable
+    {Color.m('--project-directory')} {Color.y('string')}   Specify an alternate working directory (default: the path of the, first specified, Compose file)
+    {Color.m('-p')}, {Color.m('--project-name')} {Color.y('string')}    Project name\nComandos:"""
+        )
+        NATIVES = {
+            "build": "Build or rebuild services.",
+            "convert": "Converts the compose file to platform's canonical format.",
+            "cp": "Copy files/folders between a service container and the local filesystem.",
+            "create": "Creates containers for a service.",
+            "down": "Stop and remove containers: networks.",
+            "events": "Receive real time events from containers.",
+            "exec": "Execute a command in a running container.",
+            "images": "List images used by the created containers.",
+            "kill": "Force stop service containers.",
+            "logs": "View output from containers.",
+            "ls": "List running compose projects.",
+            "pause": "Pause services.",
+            "port": "Print the public port for a port binding.",
+            "ps": "List containers.",
+            "pull": "Pull service images.",
+            "push": "Push service images.",
+            "restart": "Restart service containers.",
+            "rm": "Removes stopped service containers.",
+            "run": "Run a one-off command on a service.",
+            "start": "Start services.",
+            "stop": "Stop services.",
+            "top": "Display the running processes.",
+            "unpause": "Unpause services.,",
+            "up": "Create and start containers.",
+            "version": "Show the Docker Compose version information.",
+        }
+        for m in list(NATIVES.keys()) + list(self._commands.keys()):
+            fixed = Color.m(f"{m:22}")
+            description = self._descriptions.get(m, NATIVES.get(m, " Sem descrição"))
+            scopes = Color.c(", ".join(self._scopes.get(m, [" Ver `docker compose`"])))
+            print(f"  {fixed} - {description}{scopes}")
+
+        print(
+            f"Execute '{os.path.basename(__file__)} COMMAND help' para imprimir a ajuda."
+        )
+        exit()
+
+    def relaunch(self):
+        """Para e depois inicia ambiente ou o serviço especificado, não faz lock do CLI. Aplica-se a: $services_names$,env"""
+        self.__execute(f"docker compose down {self._service_name}")
+        # self.__execute(f"docker compose pull {self._service_name}")
+        self.__execute(f"docker compose up -d {self._service_name}")
+
+    def launch(self):
+        """Mostra o status ambiente ou o serviço especificado. Aplica-se a: $services_names$,env"""
+        self.relaunch()
+        self.__execute(f"docker compose logs -f {self._service_name}")
+
+    def exec(self):
+        """Executa um comando em um serviço que já esteja em execução. Aplica-se a: $services_names$,env"""
+        self.__execute(
+            f"docker compose {self._verb} {self._service_name} ", *sys.argv[3:]
+        )
+
+    def setup(self):
+        """Executa o setup do ambiente, ou seja, clona todos os repositórios e configura o PATH e o /etc/hosts. Aplica-se a: env"""
+
+        def clone_projects():
+            for proj, url in self.__prefixed_envs("GITCLONE_").items():
+                proj_dir = f"{PROJECT_DIR}/{proj.replace('__', '/')}"
+                branch_name = None
+                branch_arg = None
+                os.makedirs(os.path.dirname(proj_dir), 0o770, True)
+                if not os.path.exists(proj_dir):
+                    if "|" in url:
+                        url, branch_name = url.split("|", 1)
+                        branch_arg = f"-b {branch_name}"
+                    else:
+                        branch_name = 'default'
+                        branch_arg = f""
+                    print(f"Clonando em {Color.c(proj_dir)} da url {Color.y(url)}, branch {Color.m(branch_name)}")
+                    self.__execute(f"git clone {branch_arg} {url} {proj_dir}")
+
+        def write_hosts():
+            hosts_str = self.__prefixed_envs("HOSTS")
+            if "" not in hosts_str:
+                return
+            hosts = self.__prefixed_envs("HOSTS")[""].split(":", 1)
+            hosts_name = hosts[0]
+            hosts_value = hosts[1]
+            with open("/etc/hosts", "r") as f:
+                if hosts_value not in f.read():
+                    print(f"Adicionando este {hosts_value} em /etc/hosts:")
+                    nls = "#" * 70
+                    new_hosts = f"\n{nls}\n## {hosts_name}\n{nls}\n{hosts_value}\n"
+                    self.__execute(f"echo '{new_hosts}' | sudo tee -a /etc/hosts")
+
+        def mk_volumes():
+            for mkvols in self.__prefixed_envs("MK_VOLUMES").items():
+                for mkvol in mkvols[1].split(","):
+                    vol = f"{VOLUMES_DIR}/{mkvol}"
+                    os.makedirs(vol, exist_ok=True)
+                    self.__execute(f"sudo chmod -R 777 {vol}")
+
+        def write_profiles():
+            self.__writeShellFile(".bashrc")
+            self.__writeShellFile(".zshrc")
+
+        self.__execute(f"docker compose down {self._service_name}")
+        clone_projects()
+        write_hosts()
+        mk_volumes()
+
+        write_profiles()
+
+    def deploy(self):
+        """Pára todo o ambiente, inicia os serviços de background (db e cache), constrói as imagens, iniciar os serviços web em background e acompanha o log do ambiente. Aplica-se a: env"""
+        self.setup()
+        self.__execute(f"docker compose up -d")
+
+    def undeploy(self):
+        """Pára todo o ambiente e remove a pasta ../volumes. Aplica-se a: $services_names$,env"""
+
+        if self._scope_name == "env":
+            self.__execute(f"docker compose down {self._service_name}")
+        else:
+            self.__execute(f"docker compose down {self._service_name}")
+            self.__execute(f"ava exec db dropdb -U postgres {self._service_name}")
+            self.__execute(f"ava exec db createdb -U postgres {self._service_name}")
+
+        self.__execute(f"sudo rm -rf {VOLUMES_DIR}/{self._service_name}")
+        for mkvols in self.__prefixed_envs("MK_VOLUMES").items():
+            for mkvol in mkvols[1].split(","):
+                vol = f"{VOLUMES_DIR}/{mkvol}"
+                os.makedirs(vol, exist_ok=True)
+                self.__execute(f"sudo chmod -R 777 {vol}")
+
+    def git(self):
+        """Executa o comando git em todos os repositórios git. Aplica-se a: env"""
+        git_arguments = " ".join(sys.argv[2:]) if len(sys.argv) > 2 else "status"
+        self.__execute(f"cd {WORKSPACE_DIR};git {git_arguments}")
+        for proj, url in self.__prefixed_envs("GITCLONE_").items():
+            proj_dir = f"{PROJECT_DIR}/{proj.replace('__', '/')}"
+            if os.path.exists(proj_dir):
+                self.__execute(f"cd {proj_dir};git {git_arguments}")
+            else:
+                print(f"O projeto {proj_dir} NÃO foi clonado ainda.")
+
+    def cli(self):
+        """Executa a CLI padrão de um serviço, pode ser php, shell_plus, psql ou redis-cli, caso contrário será bash usará exec se já estiver em execução, run caso contrário. Aplica-se a: $services_names$"""
+        cmd = self.__prefixed_envs("CLI_").get(self._service_name, "bash")
+        self.__execute(
+            f"docker compose {self._verb} {self._service_name} {cmd} ", *sys.argv[3:]
+        )
+
+    def shell(self):
+        """Executa o bash ou sh de um serviço, usará exec se já estiver em execução, run caso contrário. Aplica-se a: $services_names$"""
+        cmd = self.__prefixed_envs("SHELL_").get(self._service_name, "bash")
+        self.__execute(
+            f"docker compose {self._verb} {self._service_name} {cmd} ", *sys.argv[3:]
+        )
+
+    def shell_root(self):
+        """Executa o bash ou sh de um serviço, usará exec se já estiver em execução, run caso contrário. Aplica-se a: $services_names$"""
+        cmd = self.__prefixed_envs("SHELL_").get(self._service_name, "bash")
+        self.__execute(
+            f"docker compose {self._verb} -u root {self._service_name} {cmd} ",
+            *sys.argv[3:],
+        )
+
+    def wait(self):
+        """Aguarda até o banco de dados estar disponível. Aplica-se a: db"""
+        while not self.service_is_healthy("db"):
+            print(Color.y("Aguardando o banco de dados estar disponível..."))
+            time.sleep(3)
+        print(Color.g("Banco de dados disponível!"))
+
+    def manage(self):
+        """Executa o manage.py do do serviço. Aplica-se a: $services_names$"""
+        self.__execute(
+            f"docker compose {self._verb} {self._service_name} python manage.py ",
+            *sys.argv[3:],
+        )
+
+    def makemigrations(self):
+        """Criar as migrações pendentes do serviço. Aplica-se a: $services_names$"""
+        self.__execute(
+            f"docker compose {self._verb} {self._service_name} python manage.py makemigrations",
+            *sys.argv[3:],
+        )
+
+    def migrate(self):
+        """Aplica as migrações pendentes do serviço. Aplica-se a: $services_names$"""
+        self.__execute(
+            f"docker compose {self._verb} {self._service_name} python manage.py migrate",
+            *sys.argv[3:],
+        )
+
+    def show_urls(self):
+        """Mostra as URL do serviço. Aplica-se a: $services_names$"""
+
+        self.__execute(
+            f"docker compose {self._verb} {self._service_name} python manage.py show_urls",
+            *sys.argv[3:],
+        )
+
+    def collectstatic(self):
+        """Mostra as URL do serviço. Aplica-se a: $services_names$"""
+
+        self.__execute(
+            f"docker compose {self._verb} {self._service_name} python manage.py collectstatic --noinput",
+            *sys.argv[3:],
+        )
+
+    def test(self):
+        """Executa os testes unitários do serviço. Aplica-se a: $services_names$"""
+        self.__execute(
+            f"docker compose {self._verb} {self._service_name} coverage run manage.py test",
+            *sys.argv[3:],
+        )
+        self.__execute(
+            f"docker compose {self._verb} {self._service_name} coverage xml",
+            *sys.argv[3:],
+        )
+        self.__execute(
+            f"docker compose {self._verb} {self._service_name} coverage html",
+            *sys.argv[3:],
+        )
+        self.__execute(
+            f"docker compose {self._verb} {self._service_name} coverage report",
+            *sys.argv[3:],
+        )
+
+    def lint(self):
+        """Executa os testes unitários do serviço. Aplica-se a: $services_names$"""
+        self.__execute(
+            f"docker compose {self._verb} {self._service_name} black --line-length 120 .",
+            *sys.argv[3:],
+        )
+
+    def compress_plugins(self):
+        """Comprime todos os plugins do AVASUS. Aplica-se a: env"""
+
+        def zip_with_prefix(folder_path, zip_path, prefix):
+            with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
+                for root, dirs, files in os.walk(folder_path):
+                    for file in files:
+                        file_path = os.path.join(root, file)
+                        if "/.git/" in file_path or "/.idea/" in file_path:
+                            continue
+                        arcname = os.path.join(
+                            prefix, os.path.relpath(file_path, folder_path)
+                        )
+                        zipf.write(file_path, arcname)
+
+        for plugin_fullname in self.__prefixed_envs("AVA_COMPRESS_PLUGINS")[''].split(','):
+            plugin_name = "_".join(plugin_fullname.split("_")[1:])
+            with open(f"../lms/{plugin_fullname}/version.php", "r") as f:
+                plugin_version = None
+                for line in f.readlines():
+                    if line.startswith("$plugin->version"):
+                        plugin_version = (
+                            line.split("=")[1]
+                            .replace(";", "")
+                            .replace("\n", "")
+                            .split()[0]
+                        )
+                        plugin_package = f"{PROJECT_DIR}/lms/moodle_docker/main/build/plugins/{plugin_fullname}-{plugin_version}.zip"
+                        # só executa se o arquivo ainda não existir
+                        if os.path.exists(plugin_package):
+                            print(
+                                f"Plugin {Color.c(plugin_package)} {Color.r('JÁ existe')}."
+                            )
+                        else:
+                            print(
+                                f"Plugin {Color.c(plugin_package)} {Color.g('NÃO existe')}."
+                            )
+                            self.__execute(
+                                f"rm -rf {PROJECT_DIR}/lms/moodle_docker/main/build/plugins/{plugin_fullname}*.zip"
+                            )
+                            zip_with_prefix(
+                                f"{PROJECT_DIR}/lms/{plugin_fullname}",
+                                plugin_package,
+                                plugin_name,
+                            )
+
+    def publish(self):
+        """Executa o setup do ambiente, ou seja, clona todos os repositórios e configura o PATH e o /etc/hosts. Aplica-se a: env"""
+        self.compress_plugins()
+        self.__execute(f"docker compose build --progress plain --push moodle")
+
+    def build_moodle_base(self):
+        """Constrói a imagem base do Moodle, que é a mais demorada, e é a única que precisa ser construída localmente, as outras podem ser construídas na nuvem. Aplica-se a: env"""
+        self.__execute(f"cd ../lms/moodle_docker/base; echo pwd; docker build --progress plain --no-cache -t moodle_base .")
+
+
+if __name__ == "__main__":
+    os.chdir(f"{WORKSPACE_DIR}")
+    print(f"Trabalhando em {Color.c(WORKSPACE_DIR)}")
+    try:
+        cmd = Commands()
+        cmd.command_method()
+    except KeyboardInterrupt:
+        print(f"\n{Color.r('Interrompido pelo usuário')}")
+        exit()

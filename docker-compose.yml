@@ -1,0 +1,45 @@
+include:
+    - ./docker-compose-infra.yml
+
+services:
+
+    web:
+        image: kelsoncm/processoseletivo
+        build:
+            context: .
+        environment:
+            # github-secret-scanning-ignore
+            - SECRET_KEY=example-secret-key
+            - DEBUG=True
+            - ALLOWED_HOSTS=localhost,127.0.0.1
+            - DB_ENGINE=django.db.backends.postgresql
+            - DB_NAME=postgres
+            - DB_USER=postgres
+            - DB_PASSWORD=postgres
+            - DB_HOST=db
+            - DB_PORT=5432
+            - TIME_ZONE=America/Sao_Paulo
+            - CELERY_BROKER_URL=redis://cache:6379/0
+            - CELERY_RESULT_BACKEND=redis://cache:6379/0
+            - EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+            - EMAIL_HOST=mail
+            - EMAIL_PORT=1025
+            - EMAIL_USE_TLS=False
+            - EMAIL_HOST_USER=''
+            - EMAIL_HOST_PASSWORD=''
+            - DEFAULT_FROM_EMAIL='noreply@example.gov.br'
+            # Adicione outras variáveis conforme necessário
+        volumes:
+            # - "./django-entrypoint.sh:/django-entrypoint.sh"
+            - "./src:/app/src"
+            - "./.git:/app/src/.git"
+            - "../volumes/app/media:/var/media"
+        depends_on:
+            db:
+                condition: service_healthy
+            cache:
+                condition: service_healthy
+            mail:
+                condition: service_started
+        ports:
+            - 8000:8000
