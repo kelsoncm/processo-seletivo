@@ -1,7 +1,22 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 
-from .models import Papel, Usuario
+from .models import ConfiguracaoAutenticacao, Papel, Usuario
+
+
+@admin.register(ConfiguracaoAutenticacao)
+class ConfiguracaoAutenticacaoAdmin(admin.ModelAdmin):
+    fieldsets = (
+        ('Meios de autenticação', {
+            'fields': ('govbr_habilitado', 'suap_habilitado', 'django_habilitado'),
+        }),
+    )
+
+    def has_add_permission(self, request):
+        return not ConfiguracaoAutenticacao.objects.exists()
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(Usuario)
@@ -12,7 +27,7 @@ class UsuarioAdmin(UserAdmin):
     ordering = ('nome',)
     fieldsets = (
         (None, {'fields': ('cpf', 'password')}),
-        ('Informações pessoais', {'fields': ('nome', 'email', 'govbr_sub')}),
+        ('Informações pessoais', {'fields': ('nome', 'email', 'govbr_sub', 'suap_id')}),
         ('Permissões', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
         ('Datas', {'fields': ('last_login', 'data_criacao', 'data_atualizacao')}),
     )
