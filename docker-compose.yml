@@ -4,7 +4,7 @@ include:
 services:
 
     web:
-        image: kelsoncm/processoseletivo
+        image: kelsoncm/processoseletivo:1.1.0
         build:
             context: .
         environment:
