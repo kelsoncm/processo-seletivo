@@ -35,7 +35,10 @@ COPY src/ /app/src/
 WORKDIR /app/src
 # Garante permissões corretas para cache do uv
 RUN mkdir -p /home/app/.cache/uv && chown -R app:app /home/app/.cache
-RUN python manage.py collectstatic --noinput
+ENV DJANGO_SETTINGS_MODULE=processo_seletivo.settings \
+    SECRET_KEY=dummy \
+    DEBUG=False
+RUN python manage.py collectstatic --noinput --verbosity 2
 
 WORKDIR /app/src
 USER app
@@ -55,7 +58,6 @@ COPY src/requirements-dev.txt /requirements-dev.txt
 RUN uv pip install --system -r /requirements-dev.txt
 
 WORKDIR /app/src
-# Garante permissões corretas para cache do uv
 RUN mkdir -p /home/app/.cache/uv && chown -R app:app /home/app/.cache
 USER app
 EXPOSE 8000
