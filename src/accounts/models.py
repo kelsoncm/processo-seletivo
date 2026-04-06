@@ -1,4 +1,5 @@
-from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+from django.contrib.auth.models import AnonymousUser
+from django.contrib.auth.models import AbstractBaseUser, AnonymousUser, BaseUserManager, PermissionsMixin
 from django.db import models
 
 
@@ -166,3 +167,12 @@ class Papel(models.Model):
     def save(self, *args, **kwargs):
         self.full_clean()
         super().save(*args, **kwargs)
+
+
+class CustomAnonymousUser(AnonymousUser):
+    def __init__(self):
+        super().__init__()
+        self.is_administrador = False
+        self.is_coordenador = False
+        self.is_avaliador = False
+        self.is_candidato = False

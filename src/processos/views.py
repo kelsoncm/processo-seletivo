@@ -21,7 +21,7 @@ class CoordenadorRequiredMixin(LoginRequiredMixin):
         return super().dispatch(request, *args, **kwargs)
 
 
-class ProcessoSeletivoListView(LoginRequiredMixin, ListView):
+class ProcessoSeletivoListView(ListView):
     model = ProcessoSeletivo
     template_name = 'processos/processo_list.html'
     context_object_name = 'processos'

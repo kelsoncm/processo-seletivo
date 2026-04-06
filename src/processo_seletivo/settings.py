@@ -26,6 +26,7 @@ LOCAL_APPS = [
     'recursos',
     'resultados',
     'auditoria',
+    'tema',
 ]
 
 THIRD_PARTY_APPS = [
@@ -55,6 +56,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'auditoria.middleware.AuditMiddleware',
+    'accounts.middlewares.CustomAnonymousUserMiddleware',
 ]
 
 ROOT_URLCONF = 'processo_seletivo.urls'
@@ -62,7 +64,6 @@ ROOT_URLCONF = 'processo_seletivo.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
