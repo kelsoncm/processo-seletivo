@@ -17,16 +17,7 @@ ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='*', cast=lambda v: [s.strip() f
 
 # Application definition
 
-INSTALLED_APPS = [
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
-    # Third-party
-    'rest_framework',
-    # Local apps
+LOCAL_APPS = [
     'accounts',
     'processos',
     'inscricoes',
@@ -35,6 +26,24 @@ INSTALLED_APPS = [
     'recursos',
     'resultados',
     'auditoria',
+]
+
+THIRD_PARTY_APPS = [
+   'rest_framework',
+]
+
+if config('DEBUG', default=True, cast=bool):
+    THIRD_PARTY_APPS += ['django_extensions']
+
+
+INSTALLED_APPS = LOCAL_APPS + THIRD_PARTY_APPS + [
+        # Django apps
+    'django.contrib.admin',
+    'django.contrib.auth',
+    'django.contrib.contenttypes',
+    'django.contrib.sessions',
+    'django.contrib.messages',
+    'django.contrib.staticfiles',
 ]
 
 MIDDLEWARE = [
