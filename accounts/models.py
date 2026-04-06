@@ -2,6 +2,33 @@ from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, Permis
 from django.db import models
 
 
+class ConfiguracaoAutenticacao(models.Model):
+    """
+    Configuração singleton dos meios de autenticação habilitados no sistema.
+    Apenas uma instância é permitida (pk=1).
+    """
+
+    govbr_habilitado = models.BooleanField('gov.br habilitado', default=True)
+    suap_habilitado = models.BooleanField('SUAP habilitado', default=False)
+    django_habilitado = models.BooleanField('Login nativo (Django) habilitado', default=False)
+
+    class Meta:
+        verbose_name = 'Configuração de Autenticação'
+        verbose_name_plural = 'Configuração de Autenticação'
+
+    def __str__(self):
+        return 'Configuração de Autenticação'
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def get_instance(cls):
+        instance, _ = cls.objects.get_or_create(pk=1)
+        return instance
+
+
 class UsuarioManager(BaseUserManager):
     def create_user(self, cpf, nome, email, password=None, **extra_fields):
         if not cpf:
@@ -22,7 +49,7 @@ class UsuarioManager(BaseUserManager):
 
 class Usuario(AbstractBaseUser, PermissionsMixin):
     """
-    Usuário do sistema autenticado via gov.br.
+    Usuário do sistema. Suporta autenticação via gov.br, SUAP OAuth2 ou login nativo Django.
     Pode ter múltiplos papéis (Administrador, Coordenador, Avaliador, Candidato).
     """
 
@@ -30,6 +57,7 @@ class Usuario(AbstractBaseUser, PermissionsMixin):
     nome = models.CharField('Nome completo', max_length=255)
     email = models.EmailField('E-mail', unique=True)
     govbr_sub = models.CharField('ID gov.br', max_length=255, blank=True, null=True, unique=True)
+    suap_id = models.CharField('ID SUAP', max_length=255, blank=True, null=True, unique=True)
 
     is_active = models.BooleanField('Ativo', default=True)
     is_staff = models.BooleanField('Equipe', default=False)

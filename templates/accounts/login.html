@@ -2,6 +2,18 @@
 {% block title %}Entrar — Processos Seletivos{% endblock %}
 {% block content %}
 <h1>Acesso ao Sistema</h1>
-<p>O acesso é realizado exclusivamente via <strong>gov.br</strong>.</p>
-<a href="{{ auth_url }}">Entrar com gov.br</a>
+{% if govbr_auth_url or suap_auth_url or django_habilitado %}
+    <p>Escolha como deseja se autenticar:</p>
+    {% if govbr_auth_url %}
+        <p><a href="{{ govbr_auth_url }}">Entrar com gov.br</a></p>
+    {% endif %}
+    {% if suap_auth_url %}
+        <p><a href="{{ suap_auth_url }}">Entrar com SUAP</a></p>
+    {% endif %}
+    {% if django_habilitado %}
+        <p><a href="{% url 'accounts:django_login' %}">Entrar com CPF e senha</a></p>
+    {% endif %}
+{% else %}
+    <p>Nenhum meio de autenticação está habilitado. Entre em contato com o administrador do sistema.</p>
+{% endif %}
 {% endblock %}

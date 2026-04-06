@@ -1,9 +1,12 @@
+from unittest.mock import patch
+
 from django.core.exceptions import ValidationError
-from django.test import TestCase
+from django.test import RequestFactory, TestCase
+from django.urls import reverse
 
 from processos.models import ProcessoSeletivo
 
-from .models import Papel, Usuario
+from .models import ConfiguracaoAutenticacao, Papel, Usuario
 
 
 class UsuarioModelTest(TestCase):
@@ -102,4 +105,157 @@ class PapelCompatibilidadeTest(TestCase):
             tipo=Papel.ADMINISTRADOR,
         )
         self.assertIsNone(papel.processo_seletivo)
+
+
+class ConfiguracaoAutenticacaoTest(TestCase):
+    def test_get_instance_cria_se_nao_existir(self):
+        ConfiguracaoAutenticacao.objects.all().delete()
+        config = ConfiguracaoAutenticacao.get_instance()
+        self.assertIsNotNone(config.pk)
+        self.assertTrue(config.govbr_habilitado)
+        self.assertFalse(config.suap_habilitado)
+        self.assertFalse(config.django_habilitado)
+
+    def test_get_instance_retorna_existente(self):
+        ConfiguracaoAutenticacao.objects.all().delete()
+        c1 = ConfiguracaoAutenticacao.get_instance()
+        c2 = ConfiguracaoAutenticacao.get_instance()
+        self.assertEqual(c1.pk, c2.pk)
+        self.assertEqual(ConfiguracaoAutenticacao.objects.count(), 1)
+
+    def test_singleton_forca_pk_1(self):
+        ConfiguracaoAutenticacao.objects.all().delete()
+        config = ConfiguracaoAutenticacao(govbr_habilitado=False, suap_habilitado=True)
+        config.save()
+        self.assertEqual(config.pk, 1)
+        self.assertEqual(ConfiguracaoAutenticacao.objects.count(), 1)
+
+
+class LoginViewTest(TestCase):
+    def _set_config(self, govbr=True, suap=False, django=False):
+        config = ConfiguracaoAutenticacao.get_instance()
+        config.govbr_habilitado = govbr
+        config.suap_habilitado = suap
+        config.django_habilitado = django
+        config.save()
+
+    def test_apenas_govbr_habilitado(self):
+        self._set_config(govbr=True, suap=False, django=False)
+        response = self.client.get(reverse('accounts:login'))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('govbr_auth_url', response.context)
+        self.assertIsNotNone(response.context['govbr_auth_url'])
+        self.assertIsNone(response.context['suap_auth_url'])
+        self.assertFalse(response.context['django_habilitado'])
+
+    def test_apenas_suap_habilitado(self):
+        self._set_config(govbr=False, suap=True, django=False)
+        response = self.client.get(reverse('accounts:login'))
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.context['govbr_auth_url'])
+        self.assertIsNotNone(response.context['suap_auth_url'])
+        self.assertFalse(response.context['django_habilitado'])
+
+    def test_apenas_django_habilitado(self):
+        self._set_config(govbr=False, suap=False, django=True)
+        response = self.client.get(reverse('accounts:login'))
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.context['govbr_auth_url'])
+        self.assertIsNone(response.context['suap_auth_url'])
+        self.assertTrue(response.context['django_habilitado'])
+
+    def test_nenhum_habilitado_exibe_mensagem(self):
+        self._set_config(govbr=False, suap=False, django=False)
+        response = self.client.get(reverse('accounts:login'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Nenhum meio de autenticação')
+
+    def test_todos_habilitados(self):
+        self._set_config(govbr=True, suap=True, django=True)
+        response = self.client.get(reverse('accounts:login'))
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNotNone(response.context['govbr_auth_url'])
+        self.assertIsNotNone(response.context['suap_auth_url'])
+        self.assertTrue(response.context['django_habilitado'])
+
+
+class SuapCallbackViewTest(TestCase):
+    def test_state_invalido_redireciona_login(self):
+        session = self.client.session
+        session['suap_state'] = 'correct_state'
+        session.save()
+        response = self.client.get(
+            reverse('accounts:suap_callback'),
+            {'code': 'abc', 'state': 'wrong_state'},
+        )
+        self.assertRedirects(response, reverse('accounts:login'))
+
+    def test_sem_code_redireciona_login(self):
+        session = self.client.session
+        session['suap_state'] = 'mystate'
+        session.save()
+        response = self.client.get(
+            reverse('accounts:suap_callback'),
+            {'state': 'mystate'},
+        )
+        self.assertRedirects(response, reverse('accounts:login'))
+
+    def test_callback_sucesso_cria_usuario(self):
+        session = self.client.session
+        session['suap_state'] = 'valid_state'
+        session.save()
+
+        token_response = {'access_token': 'tok123', 'token_type': 'Bearer'}
+        user_info = {
+            'identificacao': '12345',
+            'cpf': '123.456.789-09',
+            'nome_usual': 'Maria Souza',
+            'email': 'maria@example.com',
+        }
+
+        with patch('accounts.views.requests.post') as mock_post, \
+             patch('accounts.views.requests.get') as mock_get:
+            mock_post.return_value.json.return_value = token_response
+            mock_post.return_value.raise_for_status = lambda: None
+            mock_get.return_value.json.return_value = user_info
+            mock_get.return_value.raise_for_status = lambda: None
+
+            response = self.client.get(
+                reverse('accounts:suap_callback'),
+                {'code': 'mycode', 'state': 'valid_state'},
+            )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(Usuario.objects.filter(suap_id='12345').exists())
+
+
+class DjangoLoginViewTest(TestCase):
+    def setUp(self):
+        self.user = Usuario.objects.create_user(
+            cpf='12345678901',
+            nome='Test User',
+            email='test@example.com',
+            password='secret123',
+        )
+
+    def test_get_renderiza_formulario(self):
+        response = self.client.get(reverse('accounts:django_login'))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('form', response.context)
+
+    def test_post_credenciais_invalidas(self):
+        response = self.client.post(reverse('accounts:django_login'), {
+            'username': '12345678901',
+            'password': 'wrongpassword',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.wsgi_request.user.is_authenticated)
+
+    def test_post_credenciais_validas(self):
+        response = self.client.post(reverse('accounts:django_login'), {
+            'username': '12345678901',
+            'password': 'secret123',
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response.wsgi_request.user.is_authenticated)
 

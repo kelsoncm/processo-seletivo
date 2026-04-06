@@ -156,6 +156,14 @@ DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='noreply@example.gov.b
 SUAP_BASE_URL = config('SUAP_BASE_URL', default='')
 SUAP_API_TOKEN = config('SUAP_API_TOKEN', default='')
 
+# SUAP OAuth2 settings
+SUAP_OAUTH_CLIENT_ID = config('SUAP_OAUTH_CLIENT_ID', default='')
+SUAP_OAUTH_CLIENT_SECRET = config('SUAP_OAUTH_CLIENT_SECRET', default='')
+SUAP_OAUTH_AUTHORIZATION_URL = config('SUAP_OAUTH_AUTHORIZATION_URL', default='https://suap.ifrn.edu.br/o/authorize/')
+SUAP_OAUTH_TOKEN_URL = config('SUAP_OAUTH_TOKEN_URL', default='https://suap.ifrn.edu.br/o/token/')
+SUAP_OAUTH_USERINFO_URL = config('SUAP_OAUTH_USERINFO_URL', default='https://suap.ifrn.edu.br/api/eu/')
+SUAP_OAUTH_REDIRECT_URI = config('SUAP_OAUTH_REDIRECT_URI', default='http://localhost:8000/accounts/suap/callback/')
+
 # Login URL
 LOGIN_URL = '/accounts/login/'
 LOGIN_REDIRECT_URL = '/'
