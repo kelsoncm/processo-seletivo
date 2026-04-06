@@ -43,13 +43,6 @@ O sistema contemplará todo o ciclo de um processo seletivo público, desde a in
 ### 2.1. Descrição resumida
 O sistema será uma aplicação web responsiva, acessível mediante autenticação via gov.br para funcionalidades administrativas, de inscrição e acompanhamento. Permitirá que administradores, coordenadores, avaliadores e candidatos interajam com os processos seletivos conforme seus papéis e permissões.
 
-**Acesso anônimo:**
-Usuários não autenticados (anônimos) poderão acessar:
- - a página inicial (listagem dos processos seletivos publicados);
- - os detalhes de cada processo seletivo publicado.
-
-Funcionalidades administrativas, de inscrição e acompanhamento continuam restritas a usuários autenticados.
-
 ### 2.2. Perfis de usuário
 
 #### 2.2.1. Candidato
@@ -76,8 +69,11 @@ Ou seja, o mesmo usuário **não poderá atuar como candidato e como avaliador/c
 ### 2.4. Forma de acesso
 O acesso ao sistema será realizado **preferencialmente por autenticação gov.br**. Perfis administrativos e operacionais serão previamente cadastrados:
 
-**Exceção:**
+#### 2.4.1. Páginas públicas
 As funcionalidades públicas (listagem e detalhes de processos seletivos publicados) estarão disponíveis para acesso anônimo, sem necessidade de autenticação.
+
+Para garantir o correto funcionamento dessas páginas, o sistema utiliza um usuário anônimo customizado (`CustomAnonymousUser`), que define explicitamente os atributos `is_coordenador`, `is_avaliador` e `is_candidato` como `False`. Isso evita erros de acesso a propriedades de papéis em views e templates.
+
 - administrador: cadastrado previamente no sistema;
 - coordenador e avaliador: cadastrados previamente para uso no processo seletivo ou para associação à fase.
 
