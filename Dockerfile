@@ -19,10 +19,9 @@ RUN echo "deb http://deb.debian.org/debian trixie contrib" > /etc/apt/sources.li
     && chown -R app:app /app/static \
     && pip install --upgrade --no-cache-dir 'uv'
 
-COPY requirements.txt /
-COPY uv.lock /
-RUN uv pip sync --system /uv.lock
-
+COPY src/requirements.txt /requirements.txt
+RUN uv pip install --system -r /requirements.txt
+    
 
 ######
 # Production stage
@@ -34,6 +33,8 @@ ENV PYTHONUNBUFFERED=1
 COPY src/ /app/src/
 
 WORKDIR /app/src
+# Garante permissões corretas para cache do uv
+RUN mkdir -p /home/app/.cache/uv && chown -R app:app /home/app/.cache
 RUN python manage.py collectstatic --noinput
 
 WORKDIR /app/src
@@ -50,12 +51,13 @@ FROM builder AS developer
 
 ENV PYTHONUNBUFFERED=1
 
-COPY requirements-dev.txt /
-COPY uv-dev.lock /
-RUN uv pip sync --system /uv-dev.lock
+COPY src/requirements-dev.txt /requirements-dev.txt
+RUN uv pip install --system -r /requirements-dev.txt
 
 WORKDIR /app/src
+# Garante permissões corretas para cache do uv
+RUN mkdir -p /home/app/.cache/uv && chown -R app:app /home/app/.cache
 USER app
 EXPOSE 8000
 ENTRYPOINT ["/app/src/django-entrypoint.sh"]
-CMD ["gunicorn"]
+CMD ["python3", "manage.py", "runserver", "0.0.0.0:8000"]

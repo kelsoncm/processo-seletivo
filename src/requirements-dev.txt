@@ -5,6 +5,7 @@ django-coverage-plugin
 django-debug-toolbar
 django-stubs
 djangorestframework-stubs
+django-extensions
 djlint
 flake8
 flake8-isort

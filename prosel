@@ -456,60 +456,16 @@ class Commands:
             *sys.argv[3:],
         )
 
-    def compress_plugins(self):
-        """Comprime todos os plugins do AVASUS. Aplica-se a: env"""
-
-        def zip_with_prefix(folder_path, zip_path, prefix):
-            with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
-                for root, dirs, files in os.walk(folder_path):
-                    for file in files:
-                        file_path = os.path.join(root, file)
-                        if "/.git/" in file_path or "/.idea/" in file_path:
-                            continue
-                        arcname = os.path.join(
-                            prefix, os.path.relpath(file_path, folder_path)
-                        )
-                        zipf.write(file_path, arcname)
-
-        for plugin_fullname in self.__prefixed_envs("AVA_COMPRESS_PLUGINS")[''].split(','):
-            plugin_name = "_".join(plugin_fullname.split("_")[1:])
-            with open(f"../lms/{plugin_fullname}/version.php", "r") as f:
-                plugin_version = None
-                for line in f.readlines():
-                    if line.startswith("$plugin->version"):
-                        plugin_version = (
-                            line.split("=")[1]
-                            .replace(";", "")
-                            .replace("\n", "")
-                            .split()[0]
-                        )
-                        plugin_package = f"{PROJECT_DIR}/lms/moodle_docker/main/build/plugins/{plugin_fullname}-{plugin_version}.zip"
-                        # só executa se o arquivo ainda não existir
-                        if os.path.exists(plugin_package):
-                            print(
-                                f"Plugin {Color.c(plugin_package)} {Color.r('JÁ existe')}."
-                            )
-                        else:
-                            print(
-                                f"Plugin {Color.c(plugin_package)} {Color.g('NÃO existe')}."
-                            )
-                            self.__execute(
-                                f"rm -rf {PROJECT_DIR}/lms/moodle_docker/main/build/plugins/{plugin_fullname}*.zip"
-                            )
-                            zip_with_prefix(
-                                f"{PROJECT_DIR}/lms/{plugin_fullname}",
-                                plugin_package,
-                                plugin_name,
-                            )
-
-    def publish(self):
-        """Executa o setup do ambiente, ou seja, clona todos os repositórios e configura o PATH e o /etc/hosts. Aplica-se a: env"""
-        self.compress_plugins()
-        self.__execute(f"docker compose build --progress plain --push moodle")
-
-    def build_moodle_base(self):
-        """Constrói a imagem base do Moodle, que é a mais demorada, e é a única que precisa ser construída localmente, as outras podem ser construídas na nuvem. Aplica-se a: env"""
-        self.__execute(f"cd ../lms/moodle_docker/base; echo pwd; docker build --progress plain --no-cache -t moodle_base .")
+    def uvlocks(self):
+        """Compila os arquivos de requisitos do uv. Aplica-se a: $services_names$"""
+        self.__execute(
+            f"docker compose run --rm web uv pip compile -o uv.lock requirements.txt",
+            *sys.argv[3:],
+        )
+        self.__execute(
+            f"docker compose run --rm web uv pip compile -o uv-dev.lock requirements-dev.txt",
+            *sys.argv[3:],
+        )
 
 
 if __name__ == "__main__":

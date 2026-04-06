@@ -1,3 +1,11 @@
+# Acesso anônimo
+
+Usuários não autenticados (anônimos) podem acessar as seguintes funcionalidades:
+
+1. **Página inicial (front page):** listagem de processos seletivos publicados.
+2. **Detalhes do processo seletivo:** visualizar informações completas de um processo seletivo publicado.
+
+Funcionalidades administrativas e de inscrição continuam restritas a usuários autenticados.
 # Documento de Requisitos de Sistema (DRS)
 
 ## Sistema de Gestão de Processos Seletivos
@@ -33,7 +41,14 @@ O sistema contemplará todo o ciclo de um processo seletivo público, desde a in
 ## 2. Visão geral do sistema
 
 ### 2.1. Descrição resumida
-O sistema será uma aplicação web responsiva, acessível apenas mediante autenticação via gov.br. Permitirá que administradores, coordenadores, avaliadores e candidatos interajam com os processos seletivos conforme seus papéis e permissões.
+O sistema será uma aplicação web responsiva, acessível mediante autenticação via gov.br para funcionalidades administrativas, de inscrição e acompanhamento. Permitirá que administradores, coordenadores, avaliadores e candidatos interajam com os processos seletivos conforme seus papéis e permissões.
+
+**Acesso anônimo:**
+Usuários não autenticados (anônimos) poderão acessar:
+ - a página inicial (listagem dos processos seletivos publicados);
+ - os detalhes de cada processo seletivo publicado.
+
+Funcionalidades administrativas, de inscrição e acompanhamento continuam restritas a usuários autenticados.
 
 ### 2.2. Perfis de usuário
 
@@ -59,7 +74,10 @@ Um mesmo usuário poderá possuir mais de um papel no sistema, exceto a combina�
 Ou seja, o mesmo usuário **não poderá atuar como candidato e como avaliador/coordenador/administrador no mesmo processo seletivo**.
 
 ### 2.4. Forma de acesso
-O acesso ao sistema será realizado **exclusivamente por autenticação gov.br**. Perfis administrativos e operacionais serão previamente cadastrados:
+O acesso ao sistema será realizado **preferencialmente por autenticação gov.br**. Perfis administrativos e operacionais serão previamente cadastrados:
+
+**Exceção:**
+As funcionalidades públicas (listagem e detalhes de processos seletivos publicados) estarão disponíveis para acesso anônimo, sem necessidade de autenticação.
 - administrador: cadastrado previamente no sistema;
 - coordenador e avaliador: cadastrados previamente para uso no processo seletivo ou para associação à fase.
 
