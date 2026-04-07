@@ -9,6 +9,8 @@ class EventoAuditoria(models.Model):
     """
 
     ACESSO = 'ACESSO'
+    LOGIN = 'LOGIN'
+    LOGOUT = 'LOGOUT'
     CRIACAO = 'CRIACAO'
     ALTERACAO = 'ALTERACAO'
     EXCLUSAO = 'EXCLUSAO'
@@ -25,6 +27,8 @@ class EventoAuditoria(models.Model):
 
     TIPO_CHOICES = [
         (ACESSO, 'Acesso ao sistema'),
+        (LOGIN, 'Login'),
+        (LOGOUT, 'Logout'),
         (CRIACAO, 'Criação'),
         (ALTERACAO, 'Alteração'),
         (EXCLUSAO, 'Exclusão'),

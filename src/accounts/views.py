@@ -7,6 +7,8 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.forms import AuthenticationForm
+from django.core.exceptions import DisallowedHost
+from django.urls import reverse
 from django.shortcuts import redirect, render
 from django.views import View
 
@@ -31,11 +33,21 @@ def _get_suap_auth_url(request, state):
     params = {
         'response_type': 'code',
         'client_id': settings.SUAP_OAUTH_CLIENT_ID,
-        'redirect_uri': settings.SUAP_OAUTH_REDIRECT_URI,
+        'redirect_uri': _get_suap_redirect_uri(request),
         'scope': 'identificacao email',
         'state': state,
     }
     return f"{settings.SUAP_OAUTH_AUTHORIZATION_URL}?{urllib.parse.urlencode(params)}"
+
+
+def _get_suap_redirect_uri(request):
+    configured_redirect_uri = getattr(settings, 'SUAP_OAUTH_REDIRECT_URI', '').strip()
+    if configured_redirect_uri:
+        return configured_redirect_uri
+    try:
+        return request.build_absolute_uri(reverse('accounts:suap_callback'))
+    except DisallowedHost:
+        return 'http://localhost:8000/accounts/suap/callback/'
 
 
 class LoginView(View):
@@ -69,7 +81,7 @@ class LogoutView(View):
     def get(self, request):
         if request.user.is_authenticated:
             EventoAuditoria.registrar(
-                tipo=EventoAuditoria.ACESSO,
+                tipo=EventoAuditoria.LOGOUT,
                 acao='Logout',
                 usuario=request.user,
                 origem=request.META.get('REMOTE_ADDR', ''),
@@ -78,8 +90,76 @@ class LogoutView(View):
         return redirect('accounts:login')
 
 
-class CallbackView(View):
+class OAuthUserSyncBaseView(View):
+    provider_lookup_field = ''
+    provider_display_name = ''
+
+    def _extract_user_identity(self, user_info):
+        raise NotImplementedError()
+
+    def _get_or_create_user(self, user_info, origem=''):
+        provider_id, cpf, nome, email = self._extract_user_identity(user_info)
+
+        is_first_user = Usuario.objects.count() == 0
+        defaults = {
+            'cpf': cpf,
+            'nome': nome,
+            'email': email,
+            'is_superuser': is_first_user,
+            'is_staff': is_first_user,
+        }
+
+        lookup = {self.provider_lookup_field: provider_id}
+        usuario, created = Usuario.objects.get_or_create(
+            defaults=defaults,
+            **lookup,
+        )
+
+        if created:
+            valor_posterior = {
+                'cpf': usuario.cpf,
+                'nome': usuario.nome,
+                'email': usuario.email,
+                self.provider_lookup_field: provider_id,
+            }
+            EventoAuditoria.registrar(
+                tipo=EventoAuditoria.CRIACAO,
+                acao=f'Criação de usuário via {self.provider_display_name}',
+                usuario=usuario,
+                objeto=usuario,
+                valor_posterior=valor_posterior,
+                origem=origem,
+            )
+            return usuario
+
+        updated = False
+        valor_anterior = {'nome': usuario.nome, 'email': usuario.email}
+        if nome and usuario.nome != nome:
+            usuario.nome = nome
+            updated = True
+        if email and usuario.email != email:
+            usuario.email = email
+            updated = True
+        if updated:
+            usuario.save()
+            EventoAuditoria.registrar(
+                tipo=EventoAuditoria.ALTERACAO,
+                acao=f'Atualização de usuário via {self.provider_display_name}',
+                usuario=usuario,
+                objeto=usuario,
+                valor_anterior=valor_anterior,
+                valor_posterior={'nome': usuario.nome, 'email': usuario.email},
+                origem=origem,
+            )
+
+        return usuario
+
+
+class GovbrCallbackView(OAuthUserSyncBaseView):
     """Processa o callback do gov.br após autenticação."""
+
+    provider_lookup_field = 'govbr_sub'
+    provider_display_name = 'gov.br'
 
     def get(self, request):
         code = request.GET.get('code')
@@ -95,11 +175,14 @@ class CallbackView(View):
             access_token = token_data.get('access_token')
             user_info = self._get_user_info(access_token)
 
-            usuario = self._get_or_create_user(user_info)
+            usuario = self._get_or_create_user(
+                user_info,
+                origem=request.META.get('REMOTE_ADDR', ''),
+            )
             login(request, usuario, backend='django.contrib.auth.backends.ModelBackend')
 
             EventoAuditoria.registrar(
-                tipo=EventoAuditoria.ACESSO,
+                tipo=EventoAuditoria.LOGIN,
                 acao='Login via gov.br',
                 usuario=usuario,
                 origem=request.META.get('REMOTE_ADDR', ''),
@@ -135,33 +218,21 @@ class CallbackView(View):
         response.raise_for_status()
         return response.json()
 
-    def _get_or_create_user(self, user_info):
+    def _extract_user_identity(self, user_info):
         sub = user_info.get('sub')
+        if not sub:
+            raise ValueError('gov.br não retornou identificação do usuário.')
         cpf = user_info.get('cpf', '').replace('.', '').replace('-', '')
         nome = user_info.get('name', '')
         email = user_info.get('email', '')
-
-        usuario, created = Usuario.objects.get_or_create(
-            govbr_sub=sub,
-            defaults={'cpf': cpf, 'nome': nome, 'email': email},
-        )
-
-        if not created:
-            updated = False
-            if nome and usuario.nome != nome:
-                usuario.nome = nome
-                updated = True
-            if email and usuario.email != email:
-                usuario.email = email
-                updated = True
-            if updated:
-                usuario.save()
-
-        return usuario
+        return str(sub), cpf, nome, email
 
 
-class SuapCallbackView(View):
+class SuapCallbackView(OAuthUserSyncBaseView):
     """Processa o callback do SUAP OAuth2 após autenticação."""
+
+    provider_lookup_field = 'suap_id'
+    provider_display_name = 'SUAP'
 
     def get(self, request):
         code = request.GET.get('code')
@@ -173,15 +244,18 @@ class SuapCallbackView(View):
             return redirect('accounts:login')
 
         try:
-            token_data = self._exchange_code(code)
+            token_data = self._exchange_code(request, code)
             access_token = token_data.get('access_token')
             user_info = self._get_user_info(access_token)
 
-            usuario = self._get_or_create_user(user_info)
+            usuario = self._get_or_create_user(
+                user_info,
+                origem=request.META.get('REMOTE_ADDR', ''),
+            )
             login(request, usuario, backend='django.contrib.auth.backends.ModelBackend')
 
             EventoAuditoria.registrar(
-                tipo=EventoAuditoria.ACESSO,
+                tipo=EventoAuditoria.LOGIN,
                 acao='Login via SUAP',
                 usuario=usuario,
                 origem=request.META.get('REMOTE_ADDR', ''),
@@ -193,13 +267,13 @@ class SuapCallbackView(View):
             messages.error(request, f'Erro na autenticação via SUAP: {exc}')
             return redirect('accounts:login')
 
-    def _exchange_code(self, code):
+    def _exchange_code(self, request, code):
         response = requests.post(
             settings.SUAP_OAUTH_TOKEN_URL,
             data={
                 'grant_type': 'authorization_code',
                 'code': code,
-                'redirect_uri': settings.SUAP_OAUTH_REDIRECT_URI,
+                'redirect_uri': _get_suap_redirect_uri(request),
                 'client_id': settings.SUAP_OAUTH_CLIENT_ID,
                 'client_secret': settings.SUAP_OAUTH_CLIENT_SECRET,
             },
@@ -217,7 +291,7 @@ class SuapCallbackView(View):
         response.raise_for_status()
         return response.json()
 
-    def _get_or_create_user(self, user_info):
+    def _extract_user_identity(self, user_info):
         raw_id = user_info.get('identificacao')
         if not raw_id:
             raise ValueError('SUAP não retornou identificação do usuário.')
@@ -225,24 +299,7 @@ class SuapCallbackView(View):
         cpf = user_info.get('cpf', '').replace('.', '').replace('-', '')
         nome = user_info.get('nome_usual') or user_info.get('nome', '')
         email = user_info.get('email', '') or user_info.get('email_secundario', '')
-
-        usuario, created = Usuario.objects.get_or_create(
-            suap_id=suap_id,
-            defaults={'cpf': cpf, 'nome': nome, 'email': email},
-        )
-
-        if not created:
-            updated = False
-            if nome and usuario.nome != nome:
-                usuario.nome = nome
-                updated = True
-            if email and usuario.email != email:
-                usuario.email = email
-                updated = True
-            if updated:
-                usuario.save()
-
-        return usuario
+        return suap_id, cpf, nome, email
 
 
 class DjangoLoginView(View):
@@ -260,7 +317,7 @@ class DjangoLoginView(View):
             usuario = form.get_user()
             login(request, usuario, backend='django.contrib.auth.backends.ModelBackend')
             EventoAuditoria.registrar(
-                tipo=EventoAuditoria.ACESSO,
+                tipo=EventoAuditoria.LOGIN,
                 acao='Login nativo (Django)',
                 usuario=usuario,
                 origem=request.META.get('REMOTE_ADDR', ''),

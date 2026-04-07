@@ -114,7 +114,12 @@ class Fase(models.Model):
         return f'{self.processo_seletivo} — Fase {self.ordem}: {self.nome}'
 
     def clean(self):
-        qs = Fase.objects.filter(processo_seletivo=self.processo_seletivo).exclude(pk=self.pk)
+        # During inline creation in admin, parent object may still be unsaved.
+        # In this case, DB-based cross-record validations must be skipped.
+        if not self.processo_seletivo_id:
+            return
+
+        qs = Fase.objects.filter(processo_seletivo_id=self.processo_seletivo_id).exclude(pk=self.pk)
 
         if self.tipo == self.INSCRICAO:
             if qs.filter(tipo=self.INSCRICAO).exists():

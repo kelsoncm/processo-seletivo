@@ -10,8 +10,8 @@ class ConfiguracaoAutenticacao(models.Model):
     """
 
     govbr_habilitado = models.BooleanField('gov.br habilitado', default=True)
-    suap_habilitado = models.BooleanField('SUAP habilitado', default=False)
-    django_habilitado = models.BooleanField('Login nativo (Django) habilitado', default=False)
+    suap_habilitado = models.BooleanField('SUAP habilitado', default=True)
+    django_habilitado = models.BooleanField('Login nativo (Django) habilitado', default=True)
 
     class Meta:
         verbose_name = 'Configuração de Autenticação'
@@ -78,6 +78,27 @@ class Usuario(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return f'{self.nome} ({self.cpf})'
+
+    @property
+    def first_name(self):
+        if not self.nome:
+            return ''
+        return self.nome.strip().split()[0]
+
+    @property
+    def last_name(self):
+        if not self.nome:
+            return ''
+        parts = self.nome.strip().split()
+        if len(parts) <= 1:
+            return ''
+        return ' '.join(parts[1:])
+
+    def get_full_name(self):
+        return self.nome or ''
+
+    def get_short_name(self):
+        return self.first_name
 
     @property
     def is_administrador(self):

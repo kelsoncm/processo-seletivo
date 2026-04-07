@@ -1,7 +1,9 @@
 from django.core.exceptions import ValidationError
+from django.forms import inlineformset_factory
 from django.test import TestCase
 
 from accounts.models import Usuario
+from .admin import FaseInlineFormSet
 
 from .models import Etapa, Fase, ProcessoSeletivo
 
@@ -131,6 +133,92 @@ class FaseSequencialidadeTest(TestCase):
             ordem=3,
         )
         self.assertEqual(Fase.objects.filter(processo_seletivo=self.processo).count(), 3)
+
+    def test_clean_fase_com_processo_nao_salvo_nao_quebra(self):
+        processo_novo = ProcessoSeletivo(
+            titulo='Processo Novo',
+            coordenador=self.coord,
+        )
+        fase = Fase(
+            processo_seletivo=processo_novo,
+            tipo=Fase.INSCRICAO,
+            nome='Inscrições',
+            ordem=1,
+        )
+
+        fase.clean()
+
+
+class FaseInlineFormSetTest(TestCase):
+    def setUp(self):
+        self.coord = Usuario.objects.create_user(
+            cpf='12345678901',
+            nome='Coordenador',
+            email='coord@example.com',
+        )
+
+    def _build_formset_data(self, instance, forms_payload):
+        formset_class = inlineformset_factory(
+            ProcessoSeletivo,
+            Fase,
+            formset=FaseInlineFormSet,
+            fields=('tipo', 'nome', 'ordem'),
+            extra=0,
+            can_delete=True,
+        )
+        prefix = formset_class(instance=instance).prefix
+
+        data = {
+            f'{prefix}-TOTAL_FORMS': str(len(forms_payload)),
+            f'{prefix}-INITIAL_FORMS': '0',
+            f'{prefix}-MIN_NUM_FORMS': '0',
+            f'{prefix}-MAX_NUM_FORMS': '1000',
+        }
+
+        for i, form_data in enumerate(forms_payload):
+            data[f'{prefix}-{i}-tipo'] = form_data['tipo']
+            data[f'{prefix}-{i}-nome'] = form_data['nome']
+            data[f'{prefix}-{i}-ordem'] = str(form_data['ordem'])
+
+        return formset_class(data=data, instance=instance)
+
+    def test_inline_nao_permita_duas_fases_inscricao_no_mesmo_submit(self):
+        processo_novo = ProcessoSeletivo(
+            titulo='Processo Inline',
+            coordenador=self.coord,
+        )
+        formset = self._build_formset_data(
+            processo_novo,
+            [
+                {'tipo': Fase.INSCRICAO, 'nome': 'Inscrição 1', 'ordem': 1},
+                {'tipo': Fase.INSCRICAO, 'nome': 'Inscrição 2', 'ordem': 2},
+            ],
+        )
+
+        self.assertFalse(formset.is_valid())
+        self.assertIn(
+            'Já existe uma fase de inscrição neste processo seletivo.',
+            formset.non_form_errors(),
+        )
+
+    def test_inline_exige_inscricao_com_menor_ordem(self):
+        processo_novo = ProcessoSeletivo(
+            titulo='Processo Inline',
+            coordenador=self.coord,
+        )
+        formset = self._build_formset_data(
+            processo_novo,
+            [
+                {'tipo': Fase.INTERMEDIARIA, 'nome': 'Análise', 'ordem': 1},
+                {'tipo': Fase.INSCRICAO, 'nome': 'Inscrição', 'ordem': 2},
+            ],
+        )
+
+        self.assertFalse(formset.is_valid())
+        self.assertIn(
+            'A fase de inscrição deve ser sempre a primeira fase.',
+            formset.non_form_errors(),
+        )
 
 
 class EtapaTest(TestCase):

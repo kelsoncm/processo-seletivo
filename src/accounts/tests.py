@@ -4,6 +4,7 @@ from django.core.exceptions import ValidationError
 from django.test import RequestFactory, TestCase
 from django.urls import reverse
 
+from auditoria.models import EventoAuditoria
 from processos.models import ProcessoSeletivo
 
 from .models import ConfiguracaoAutenticacao, Papel, Usuario
@@ -25,6 +26,12 @@ class UsuarioModelTest(TestCase):
     def test_str(self):
         self.assertIn('João Silva', str(self.user))
         self.assertIn('12345678901', str(self.user))
+
+    def test_name_compatibility_properties(self):
+        self.assertEqual(self.user.first_name, 'João')
+        self.assertEqual(self.user.last_name, 'Silva')
+        self.assertEqual(self.user.get_short_name(), 'João')
+        self.assertEqual(self.user.get_full_name(), 'João Silva')
 
     def test_is_administrador_false_sem_papel(self):
         self.assertFalse(self.user.is_administrador)
@@ -113,8 +120,8 @@ class ConfiguracaoAutenticacaoTest(TestCase):
         config = ConfiguracaoAutenticacao.get_instance()
         self.assertIsNotNone(config.pk)
         self.assertTrue(config.govbr_habilitado)
-        self.assertFalse(config.suap_habilitado)
-        self.assertFalse(config.django_habilitado)
+        self.assertTrue(config.suap_habilitado)
+        self.assertTrue(config.django_habilitado)
 
     def test_get_instance_retorna_existente(self):
         ConfiguracaoAutenticacao.objects.all().delete()
@@ -227,6 +234,146 @@ class SuapCallbackViewTest(TestCase):
 
         self.assertEqual(response.status_code, 302)
         self.assertTrue(Usuario.objects.filter(suap_id='12345').exists())
+        self.assertTrue(
+            EventoAuditoria.objects.filter(
+                tipo=EventoAuditoria.CRIACAO,
+                acao='Criação de usuário via SUAP',
+            ).exists()
+        )
+        self.assertTrue(
+            EventoAuditoria.objects.filter(
+                tipo=EventoAuditoria.LOGIN,
+                acao='Login via SUAP',
+            ).exists()
+        )
+
+    def test_callback_sucesso_atualiza_usuario_registra_alteracao(self):
+        Usuario.objects.create_user(
+            cpf='12345678909',
+            nome='Nome Antigo',
+            email='antigo@example.com',
+            suap_id='12345',
+        )
+
+        session = self.client.session
+        session['suap_state'] = 'valid_state'
+        session.save()
+
+        token_response = {'access_token': 'tok123', 'token_type': 'Bearer'}
+        user_info = {
+            'identificacao': '12345',
+            'cpf': '123.456.789-09',
+            'nome_usual': 'Nome Novo',
+            'email': 'novo@example.com',
+        }
+
+        with patch('accounts.views.requests.post') as mock_post, \
+             patch('accounts.views.requests.get') as mock_get:
+            mock_post.return_value.json.return_value = token_response
+            mock_post.return_value.raise_for_status = lambda: None
+            mock_get.return_value.json.return_value = user_info
+            mock_get.return_value.raise_for_status = lambda: None
+
+            response = self.client.get(
+                reverse('accounts:suap_callback'),
+                {'code': 'mycode', 'state': 'valid_state'},
+            )
+
+        self.assertEqual(response.status_code, 302)
+        usuario = Usuario.objects.get(suap_id='12345')
+        self.assertEqual(usuario.nome, 'Nome Novo')
+        self.assertEqual(usuario.email, 'novo@example.com')
+        self.assertTrue(
+            EventoAuditoria.objects.filter(
+                tipo=EventoAuditoria.ALTERACAO,
+                acao='Atualização de usuário via SUAP',
+            ).exists()
+        )
+
+
+class GovbrCallbackViewTest(TestCase):
+    def test_callback_sucesso_cria_usuario(self):
+        session = self.client.session
+        session['govbr_state'] = 'valid_state'
+        session.save()
+
+        token_response = {'access_token': 'tok123', 'token_type': 'Bearer'}
+        user_info = {
+            'sub': 'govbr-12345',
+            'cpf': '123.456.789-09',
+            'name': 'Maria Souza',
+            'email': 'maria@example.com',
+        }
+
+        with patch('accounts.views.requests.post') as mock_post, \
+             patch('accounts.views.requests.get') as mock_get:
+            mock_post.return_value.json.return_value = token_response
+            mock_post.return_value.raise_for_status = lambda: None
+            mock_get.return_value.json.return_value = user_info
+            mock_get.return_value.raise_for_status = lambda: None
+
+            response = self.client.get(
+                reverse('accounts:govbr_callback'),
+                {'code': 'mycode', 'state': 'valid_state'},
+            )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(Usuario.objects.filter(govbr_sub='govbr-12345').exists())
+        self.assertTrue(
+            EventoAuditoria.objects.filter(
+                tipo=EventoAuditoria.CRIACAO,
+                acao='Criação de usuário via gov.br',
+            ).exists()
+        )
+        self.assertTrue(
+            EventoAuditoria.objects.filter(
+                tipo=EventoAuditoria.LOGIN,
+                acao='Login via gov.br',
+            ).exists()
+        )
+
+    def test_callback_sucesso_atualiza_usuario_registra_alteracao(self):
+        Usuario.objects.create_user(
+            cpf='12345678909',
+            nome='Nome Antigo',
+            email='antigo@example.com',
+            govbr_sub='govbr-12345',
+        )
+
+        session = self.client.session
+        session['govbr_state'] = 'valid_state'
+        session.save()
+
+        token_response = {'access_token': 'tok123', 'token_type': 'Bearer'}
+        user_info = {
+            'sub': 'govbr-12345',
+            'cpf': '123.456.789-09',
+            'name': 'Nome Novo',
+            'email': 'novo@example.com',
+        }
+
+        with patch('accounts.views.requests.post') as mock_post, \
+             patch('accounts.views.requests.get') as mock_get:
+            mock_post.return_value.json.return_value = token_response
+            mock_post.return_value.raise_for_status = lambda: None
+            mock_get.return_value.json.return_value = user_info
+            mock_get.return_value.raise_for_status = lambda: None
+
+            response = self.client.get(
+                reverse('accounts:govbr_callback'),
+                {'code': 'mycode', 'state': 'valid_state'},
+            )
+
+        self.assertEqual(response.status_code, 302)
+        usuario = Usuario.objects.get(govbr_sub='govbr-12345')
+        self.assertEqual(usuario.nome, 'Nome Novo')
+        self.assertEqual(usuario.email, 'novo@example.com')
+        self.assertTrue(
+            EventoAuditoria.objects.filter(
+                tipo=EventoAuditoria.ALTERACAO,
+                acao='Atualização de usuário via gov.br',
+            ).exists()
+        )
 
 
 class DjangoLoginViewTest(TestCase):

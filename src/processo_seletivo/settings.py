@@ -3,8 +3,8 @@ Django settings for processo_seletivo project.
 """
 
 from pathlib import Path
-
 from decouple import config
+import datetime
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -30,7 +30,8 @@ LOCAL_APPS = [
 ]
 
 THIRD_PARTY_APPS = [
-   'rest_framework',
+    'rest_framework',
+    'dsgovbr',
 ]
 
 if config('DEBUG', default=True, cast=bool):
@@ -71,6 +72,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                "dsgovbr.context_processors.layout_settings",
             ],
         },
     },
@@ -151,7 +153,7 @@ GOVBR_USERINFO_URL = config(
     'GOVBR_USERINFO_URL',
     default='https://sso.staging.acesso.gov.br/userinfo',
 )
-GOVBR_REDIRECT_URI = config('GOVBR_REDIRECT_URI', default='http://localhost:8000/accounts/callback/')
+GOVBR_REDIRECT_URI = config('GOVBR_REDIRECT_URI', default='http://localhost:8000/accounts/govbr/callback/')
 
 # Email
 EMAIL_BACKEND = config('EMAIL_BACKEND', default='django.core.mail.backends.console.EmailBackend')
@@ -167,13 +169,25 @@ SUAP_BASE_URL = config('SUAP_BASE_URL', default='')
 SUAP_API_TOKEN = config('SUAP_API_TOKEN', default='')
 
 # SUAP OAuth2 settings
-SUAP_OAUTH_CLIENT_ID = config('SUAP_OAUTH_CLIENT_ID', default='')
-SUAP_OAUTH_CLIENT_SECRET = config('SUAP_OAUTH_CLIENT_SECRET', default='')
+SUAP_OAUTH_CLIENT_ID = config('SUAP_OAUTH_CLIENT_ID', default='Ca1DUl2YvjC2MACYGKmG1F6UIkxoBdJHiqYl8paX')
+SUAP_OAUTH_CLIENT_SECRET = config('SUAP_OAUTH_CLIENT_SECRET', default='vjVbcwjHYDcs5ilSjesqROxdxm1Gndd3HiwTpjS7xQuwx5SgcRqABpzVeOjvcwHw3luZ4swCuOvHsyec2jtLpE46j4tBQcMEqSoUH236xhdkfv51KcEZHZtnjPnJhcVg')
 SUAP_OAUTH_AUTHORIZATION_URL = config('SUAP_OAUTH_AUTHORIZATION_URL', default='https://suap.ifrn.edu.br/o/authorize/')
 SUAP_OAUTH_TOKEN_URL = config('SUAP_OAUTH_TOKEN_URL', default='https://suap.ifrn.edu.br/o/token/')
-SUAP_OAUTH_USERINFO_URL = config('SUAP_OAUTH_USERINFO_URL', default='https://suap.ifrn.edu.br/api/eu/')
+SUAP_OAUTH_USERINFO_URL = config('SUAP_OAUTH_USERINFO_URL', default='https://suap.ifrn.edu.br/api/rh/eu/')
 SUAP_OAUTH_REDIRECT_URI = config('SUAP_OAUTH_REDIRECT_URI', default='http://localhost:8000/accounts/suap/callback/')
 
 # Login URL
 LOGIN_URL = '/accounts/login/'
 LOGIN_REDIRECT_URL = '/'
+
+
+
+PROJECT_COMPANY = config("PROJECT_COMPANY", "KelsonCM")
+PROJECT_TITLE = config("PROJECT_TITLE", "Seleção Simplificada")
+PROJECT_SUBTITLE = config("PROJECT_SUBTITLE", "Processo seletivo simplificado")
+PROJECT_VERSION = config("PROJECT_VERSION", "1.0.2")
+PROJECT_LAST_STARTUP = int(datetime.datetime.timestamp(datetime.datetime.now()) * 1000)
+PROJECT_COPYRIGHT = config("PROJECT_COPYRIGHT", "🄯2026 KelsonCM")
+PROJECT_LICENSE = config("PROJECT_LICENSE", "Licença MIT")
+PROJECT_LICENSE_URL = config("PROJECT_LICENSE_URL", "https://opensource.org/license/mit")
+
