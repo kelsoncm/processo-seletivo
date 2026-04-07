@@ -13,7 +13,7 @@ COMPANY_NAME = "PESSOAL"
 PROJECT_NAME = "prosel"
 HOME = os.environ.get("HOME")
 PROJECT_DIR = os.environ.get("PROJECT_DIR", f"{HOME}/projetos/{COMPANY_NAME}/processo-seletivo")
-WORKSPACE_DIR = os.environ.get("WORKSPACE_DIR", f"{PROJECT_DIR}/")
+WORKSPACE_DIR = os.environ.get("WORKSPACE_DIR", f"{PROJECT_DIR}")
 VOLUMES_DIR = os.environ.get("VOLUMES_DIR", f"{PROJECT_DIR}/prosel_volumes")
 
 
