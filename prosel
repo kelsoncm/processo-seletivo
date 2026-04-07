@@ -14,7 +14,7 @@ PROJECT_NAME = "prosel"
 HOME = os.environ.get("HOME")
 PROJECT_DIR = os.environ.get("PROJECT_DIR", f"{HOME}/projetos/{COMPANY_NAME}/processo-seletivo")
 WORKSPACE_DIR = os.environ.get("WORKSPACE_DIR", f"{PROJECT_DIR}")
-VOLUMES_DIR = os.environ.get("VOLUMES_DIR", f"{PROJECT_DIR}/prosel_volumes")
+VOLUMES_DIR = os.environ.get("VOLUMES_DIR", f"{HOME}/projetos/{COMPANY_NAME}/volumes/{PROJECT_NAME}")
 
 
 class Color:
@@ -337,7 +337,7 @@ class Commands:
         self.__execute(f"docker compose up -d")
 
     def undeploy(self):
-        """Pára todo o ambiente e remove a pasta ../volumes. Aplica-se a: $services_names$,env"""
+        """Pára todo o ambiente e remove a pasta ../volumes/prosel. Aplica-se a: $services_names$,env"""
 
         if self._scope_name == "env":
             self.__execute(f"docker compose down {self._service_name}")
@@ -396,21 +396,21 @@ class Commands:
     def manage(self):
         """Executa o manage.py do do serviço. Aplica-se a: $services_names$"""
         self.__execute(
-            f"docker compose {self._verb} {self._service_name} python manage.py ",
+            f"docker compose {self._verb} web python manage.py ",
             *sys.argv[3:],
         )
 
     def makemigrations(self):
         """Criar as migrações pendentes do serviço. Aplica-se a: $services_names$"""
         self.__execute(
-            f"docker compose {self._verb} {self._service_name} python manage.py makemigrations",
+            f"docker compose {self._verb} web python manage.py makemigrations",
             *sys.argv[3:],
         )
 
     def migrate(self):
         """Aplica as migrações pendentes do serviço. Aplica-se a: $services_names$"""
         self.__execute(
-            f"docker compose {self._verb} {self._service_name} python manage.py migrate",
+            f"docker compose {self._verb} web python manage.py migrate",
             *sys.argv[3:],
         )
 
@@ -418,7 +418,7 @@ class Commands:
         """Mostra as URL do serviço. Aplica-se a: $services_names$"""
 
         self.__execute(
-            f"docker compose {self._verb} {self._service_name} python manage.py show_urls",
+            f"docker compose {self._verb} web python manage.py show_urls",
             *sys.argv[3:],
         )
 
@@ -426,46 +426,36 @@ class Commands:
         """Mostra as URL do serviço. Aplica-se a: $services_names$"""
 
         self.__execute(
-            f"docker compose {self._verb} {self._service_name} python manage.py collectstatic --noinput",
+            f"docker compose {self._verb} web python manage.py collectstatic --noinput",
             *sys.argv[3:],
         )
 
     def test(self):
         """Executa os testes unitários do serviço. Aplica-se a: $services_names$"""
         self.__execute(
-            f"docker compose {self._verb} {self._service_name} coverage run manage.py test",
+            f"docker compose {self._verb} web coverage run manage.py test",
             *sys.argv[3:],
         )
         self.__execute(
-            f"docker compose {self._verb} {self._service_name} coverage xml",
+            f"docker compose {self._verb} web coverage xml",
             *sys.argv[3:],
         )
         self.__execute(
-            f"docker compose {self._verb} {self._service_name} coverage html",
+            f"docker compose {self._verb} web coverage html",
             *sys.argv[3:],
         )
         self.__execute(
-            f"docker compose {self._verb} {self._service_name} coverage report",
+            f"docker compose {self._verb} web coverage report",
             *sys.argv[3:],
         )
 
     def lint(self):
         """Executa os testes unitários do serviço. Aplica-se a: $services_names$"""
         self.__execute(
-            f"docker compose {self._verb} {self._service_name} black --line-length 120 .",
+            f"docker compose {self._verb} web black --line-length 120 .",
             *sys.argv[3:],
         )
 
-    def uvlocks(self):
-        """Compila os arquivos de requisitos do uv. Aplica-se a: $services_names$"""
-        self.__execute(
-            f"docker compose run --rm web uv pip compile -o uv.lock requirements.txt",
-            *sys.argv[3:],
-        )
-        self.__execute(
-            f"docker compose run --rm web uv pip compile -o uv-dev.lock requirements-dev.txt",
-            *sys.argv[3:],
-        )
 
 
 if __name__ == "__main__":
