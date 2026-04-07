@@ -111,34 +111,14 @@ As seguintes variáveis de ambiente podem ser informadas ao subir a imagem para 
 ## Rodando migrações e criando superusuário
 
 ```bash
-docker compose exec web python manage.py migrate
-docker compose exec web python manage.py createsuperuser
+prosel migrate web
+prosel manage web createsuperuser
 ```
 
 ## Testes
 
 ```bash
-docker compose exec web python manage.py test
-```
-
-## Atualizando o uv
-
-Para atualizar o uv (gerenciador de dependências Python ultrarrápido) no ambiente Docker, execute:
-
-```bash
-docker compose run --rm web uv pip install --upgrade uv
-```
-
-Se desejar atualizar o uv.lock após atualizar o uv ou requirements.txt:
-
-```bash
-docker compose run --rm web uv pip compile -o uv.lock requirements.txt
-```
-
-E para o ambiente de desenvolvimento:
-
-```bash
-docker compose run --rm web uv pip compile -o uv-dev.lock requirements-dev.txt
+prosel test web
 ```
 
 ## Licença
