@@ -8,7 +8,7 @@ services:
             - POSTGRES_PASSWORD=postgres
         volumes:
             - "./data/db_backup:/docker-entrypoint-initdb.d"
-            - "../volumes/db/data:/var/lib/postgresql/data"
+            - "../volumes/prosel/db/data:/var/lib/postgresql/18/docker"
         healthcheck:
             test: [ "CMD", "psql", "-h", "127.0.0.1", "-U", "postgres" ]
             interval: 3s
