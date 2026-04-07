@@ -1,29 +1,20 @@
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Sistema de Processos Seletivos{% endblock %}</title>
-</head>
-<body>
-    <header>
-        <nav>
-            <a href="/">Início</a>
-            {% if user.is_authenticated %}
-                <span>{{ user.nome }}</span>
-                <a href="{% url 'accounts:logout' %}">Sair</a>
-            {% else %}
-                <a href="{% url 'accounts:login' %}">Entrar</a>
-            {% endif %}
-        </nav>
-    </header>
-    <main>
-        {% if messages %}
-            {% for message in messages %}
-                <div class="message {{ message.tags }}">{{ message }}</div>
-            {% endfor %}
-        {% endif %}
-        {% block content %}{% endblock %}
-    </main>
-</body>
-</html>
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block title %}{% block page_title %}Sistema de Processos Seletivos{% endblock %}{% endblock %}
+
+{% block branding %}
+<h1 id="site-name"><a href="{% url 'home' %}">Sistema de Processos Seletivos</a></h1>
+{% endblock %}
+
+{% block nav-global %}
+<a href="{% url 'home' %}">Início</a>
+{% if user.is_authenticated %}
+  <span style="margin-left: 1rem; margin-right: 1rem;">{{ user.nome }}</span>
+  <a href="{% url 'accounts:logout' %}">Sair</a>
+{% else %}
+  <a href="{% url 'accounts:login' %}">Entrar</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}{% endblock %}
