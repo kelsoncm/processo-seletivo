@@ -4,7 +4,7 @@ include:
 services:
 
     web:
-        image: kelsoncm/processoseletivo:1.1.0
+        image: kelsoncm/processoseletivo:1.0.2
         build:
             context: .
         environment:
@@ -33,7 +33,7 @@ services:
             # - "./django-entrypoint.sh:/django-entrypoint.sh"
             - "./src:/app/src"
             - "./.git:/app/src/.git"
-            - "../volumes/app/media:/var/media"
+            - "../volumes/prosel/app/media:/var/media"
         depends_on:
             db:
                 condition: service_healthy
