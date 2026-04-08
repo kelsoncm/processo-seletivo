@@ -169,8 +169,8 @@ SUAP_BASE_URL = config('SUAP_BASE_URL', default='')
 SUAP_API_TOKEN = config('SUAP_API_TOKEN', default='')
 
 # SUAP OAuth2 settings
-SUAP_OAUTH_CLIENT_ID = config('SUAP_OAUTH_CLIENT_ID', default='Ca1DUl2YvjC2MACYGKmG1F6UIkxoBdJHiqYl8paX')
-SUAP_OAUTH_CLIENT_SECRET = config('SUAP_OAUTH_CLIENT_SECRET', default='vjVbcwjHYDcs5ilSjesqROxdxm1Gndd3HiwTpjS7xQuwx5SgcRqABpzVeOjvcwHw3luZ4swCuOvHsyec2jtLpE46j4tBQcMEqSoUH236xhdkfv51KcEZHZtnjPnJhcVg')
+SUAP_OAUTH_CLIENT_ID = config('SUAP_OAUTH_CLIENT_ID', default='')
+SUAP_OAUTH_CLIENT_SECRET = config('SUAP_OAUTH_CLIENT_SECRET', default='')
 SUAP_OAUTH_AUTHORIZATION_URL = config('SUAP_OAUTH_AUTHORIZATION_URL', default='https://suap.ifrn.edu.br/o/authorize/')
 SUAP_OAUTH_TOKEN_URL = config('SUAP_OAUTH_TOKEN_URL', default='https://suap.ifrn.edu.br/o/token/')
 SUAP_OAUTH_USERINFO_URL = config('SUAP_OAUTH_USERINFO_URL', default='https://suap.ifrn.edu.br/api/rh/eu/')
