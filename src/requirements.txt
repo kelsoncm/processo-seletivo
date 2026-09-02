@@ -15,7 +15,7 @@ rule-engine==4.5.3
 httpie==3.2.4
 requests==2.33.1
 django-ninja==1.6.2
-djangorestframework==3.17.1
+djangorestframework==3.17.2
 django-dsgovbr==5.2.4
 
 # Cache and Session
